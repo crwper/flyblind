@@ -31,6 +31,7 @@ SRC          = src/Main.c                                                  \
 	           src/Tone.c                                                  \
 	           src/uart.c                                                  \
 	           src/UBX.c                                                   \
+			   src/Nav.c                                                   \
 	           src/UsbInterface.c                                          \
 	           src/Lib/MMC.c                                               \
 	           src/Lib/SCSI.c                                              \

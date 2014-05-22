@@ -37,6 +37,9 @@ Mode:      2     ; Measurement mode\r\n\
                  ;   2 = Glide ratio\r\n\
                  ;   3 = Inverse glide ratio\r\n\
                  ;   4 = Total speed\r\n\
+                 ;   5 = Direction to destination\r\n\
+                 ;   6 = Distance to destination\r\n\
+                 ;   7 = Direction to bearing\r\n\
 Min:       0     ; Lowest pitch value\r\n\
                  ;   cm/s        in Mode 0, 1, or 4\r\n\
                  ;   ratio * 100 in Mode 2 or 3\r\n\
@@ -57,6 +60,9 @@ Mode_2:    9     ; Determines tone rate\r\n\
                  ;   2 = Glide ratio\r\n\
                  ;   3 = Inverse glide ratio\r\n\
                  ;   4 = Total speed\r\n\
+                 ;   5 = Direction to destination\r\n\
+                 ;   6 = Distance to destination\r\n\
+                 ;   7 = Direction to bearing\r\n\
                  ;   8 = Magnitude of Value 1\r\n\
                  ;   9 = Change in Value 1\r\n\
 Min_Val_2: 300   ; Lowest rate value\r\n\
@@ -81,6 +87,9 @@ Sp_Mode:   2     ; Speech mode\r\n\
                  ;   2 = Glide ratio\r\n\
                  ;   3 = Inverse glide ratio\r\n\
                  ;   4 = Total speed\r\n\
+                 ;   5 = Direction to destination\r\n\
+                 ;   6 = Distance to destination\r\n\
+                 ;   7 = Direction to bearing\r\n\
 Sp_Units:  1     ; Speech units\r\n\
                  ;   0 = km/h\r\n\
                  ;   1 = mph\r\n\
@@ -120,7 +129,22 @@ Alarm_Type:    0 ; Alarm type\r\n\
                  ;   1 = Beep\r\n\
                  ;   2 = Chirp up\r\n\
                  ;   3 = Chirp down\r\n\
-                 ;   4 = Warble\r\n";
+                 ;   4 = Warble\r\n\
+\r\n\
+; Flyblind settings\r\n\
+\r\n\
+      Lat: 532497000 ; Latitude of destination  (Decimal degrees *10,000,000)\r\n\
+                     ;   e.g. 43.6423 should be entered as 436423000 \r\n\
+      Lon: -71192000 ; Longitude of destination (Decimal degrees *10,000,000)\r\n\
+                     ;   e.g. -79.387 should be entered as -793870000 \r\n\
+	  \r\n\
+Elevation: 71        ; Elevation of destination (m)\r\n\
+\r\n\
+  End_Nav: 500       ; Minimum height above elevation for tone (Modes 5 & 7)\r\n\
+                     ;   0 = Disable\r\n\
+ Max_Dist: 10000     ; Maximum distance from destination for tone (Modes 5 & 7) (m)\r\n\
+                     ;   0 = Disable\r\n\
+                     ;   Max value = 10000\r\n" ;
 
 static const char Config_Model[] PROGMEM      = "Model";
 static const char Config_Rate[] PROGMEM       = "Rate";
@@ -145,6 +169,12 @@ static const char Config_Use_SAS[] PROGMEM    = "Use_SAS";
 static const char Config_Window[] PROGMEM     = "Window";
 static const char Config_Alarm_Elev[] PROGMEM = "Alarm_Elev";
 static const char Config_Alarm_Type[] PROGMEM = "Alarm_Type";
+static const char Config_Lat[] PROGMEM        = "Lat";
+static const char Config_Lon[] PROGMEM        = "Lon";
+static const char Config_Elevation[] PROGMEM  = "Elevation";
+static const char Config_Bearing[] PROGMEM    = "Bearing";
+static const char Config_End_Nav[] PROGMEM    = "End_Nav";
+static const char Config_Max_Dist[] PROGMEM   = "Max_Dist";
 
 static void Config_WriteString_P(
 	const char *str,
@@ -212,18 +242,18 @@ void Config_Read(void)
 
 		HANDLE_VALUE(Config_Model,     UBX_model,        val, val >= 0 && val <= 8);
 		HANDLE_VALUE(Config_Rate,      UBX_rate,         val, val >= 100);
-		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, val >= 0 && val <= 4);
+		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, val >= 0 && val <= 7);
 		HANDLE_VALUE(Config_Min,       UBX_min,          val, TRUE);
 		HANDLE_VALUE(Config_Max,       UBX_max,          val, TRUE);
 		HANDLE_VALUE(Config_Limits,    UBX_limits,       val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Volume,    Tone_volume,      8 - val, val >= 0 && val <= 8);
-		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, (val >= 0 && val <= 4) || (val >= 8 && val <= 9));
+		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, val >= 0 && val <= 9);
 		HANDLE_VALUE(Config_Min_Val_2, UBX_min_2,        val, TRUE);
 		HANDLE_VALUE(Config_Max_Val_2, UBX_max_2,        val, TRUE);
 		HANDLE_VALUE(Config_Min_Rate,  UBX_min_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Max_Rate,  UBX_max_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Flatline,  UBX_flatline,     val, val == 0 || val == 1);
-		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 6);
+		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 7);
 		HANDLE_VALUE(Config_Sp_Units,  UBX_sp_units,     val, val >= 0 && val <= 1);
 		HANDLE_VALUE(Config_Sp_Rate,   UBX_sp_rate,      val * 1000, val >= 0 && val <= 32);
 		HANDLE_VALUE(Config_Sp_Dec,    UBX_sp_decimals,  val, val >= 0 && val <= 2);
@@ -231,6 +261,12 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_H_Thresh,  UBX_hThreshold,   val, TRUE);
 		HANDLE_VALUE(Config_Use_SAS,   UBX_use_sas,      val, val == 0 || val == 1);
 		HANDLE_VALUE(Config_Window,    UBX_alarm_window, val * 1000, TRUE);
+		HANDLE_VALUE(Config_Lat,       UBX_dLat,         val, val >= -900000000 && val <= 900000000);
+		HANDLE_VALUE(Config_Lon,       UBX_dLon,         val, val >= -1800000000 && val <= 1800000000);
+		HANDLE_VALUE(Config_Elevation, UBX_dEle,         val, val >= 0 && val <= 3000);
+		HANDLE_VALUE(Config_Bearing,   UBX_bearing,      val, val >= 0 && val <= 360);
+		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val, val >= 0 && val <= 3000);
+		HANDLE_VALUE(Config_Max_Dist,  UBX_max_dist,     val, val >= 0 && val <= 10000);
 		
 		#undef HANDLE_VALUE
 		

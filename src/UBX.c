@@ -14,6 +14,7 @@
 #include "Tone.h"
 #include "uart.h"
 #include "UBX.h"
+#include "Nav.h"
 
 #define ABS(a)   ((a) < 0     ? -(a) : (a))
 #define MIN(a,b) (((a) < (b)) ?  (a) : (b))
@@ -56,6 +57,17 @@
 #define UBX_UNITS_KMH       0
 #define UBX_UNITS_MPH       1
 
+#define MODE_Horizontal_speed           0
+#define MODE_Vertical_speed             1
+#define MODE_Glide_ratio                2
+#define MODE_Inverse_glide_ratio        3
+#define MODE_Total_speed                4
+#define MODE_Direction_to_destination   5
+#define MODE_Distance_to_destination    6
+#define MODE_Direction_to_bearing       7
+#define MODE_Magnitude_of_Value_1       8
+#define MODE_Change_in_Value_1          9
+
 #define UBX_BUFFER_LEN      4
 
 static const uint16_t UBX_sas_table[] PROGMEM =
@@ -95,7 +107,7 @@ UBX_cfg_prt;
 typedef struct
 {
 	uint16_t measRate; // Measurement rate             (ms)
-	uint16_t navRate;  // Nagivation rate, in number 
+	uint16_t navRate;  // Navigation rate, in number 
 	                   //   of measurement cycles
 	uint16_t timeRef;  // Alignment to reference time:
 	                   //   0 = UTC time; 1 = GPS time
@@ -249,6 +261,14 @@ UBX_alarm UBX_alarms[UBX_MAX_ALARMS];
 uint8_t   UBX_num_alarms   = 0;
 uint32_t  UBX_alarm_window = 0;
 
+//Flyblind
+int32_t  UBX_dLat          = 533230827;
+int32_t  UBX_dLon          = -62795346;
+int16_t  UBX_dEle          = 0;
+int16_t  UBX_bearing       = 0;
+uint16_t UBX_end_nav       = 0;
+uint16_t UBX_max_dist      = 10000;
+//Flyblind
 typedef struct
 {
 	UBX_nav_posllh  nav_pos_llh;
@@ -697,16 +717,17 @@ static void UBX_GetValues(
 			speed_mul = y1 + ((y2 - y1) * j) / 1024;
 		}
 	}
+int32_t tVal;
 
 	switch (mode)
 	{
-	case 0: // Horizontal speed
+	case MODE_Horizontal_speed:
 		*val = (current->nav_velned.gSpeed * 1024) / speed_mul;
 		break;
-	case 1: // Vertical speed
+	case MODE_Vertical_speed:
 		*val = (current->nav_velned.velD * 1024) / speed_mul;
 		break;
-	case 2: // Glide ratio
+	case MODE_Glide_ratio:
 		if (current->nav_velned.velD != 0)
 		{
 			*val = 10000 * (int32_t) current->nav_velned.gSpeed / current->nav_velned.velD;
@@ -714,7 +735,7 @@ static void UBX_GetValues(
 			*max *= 100;
 		}
 		break;
-	case 3: // Inverse glide ratio
+	case MODE_Inverse_glide_ratio:
 		if (current->nav_velned.gSpeed != 0)
 		{
 			*val = 10000 * current->nav_velned.velD / (int32_t) current->nav_velned.gSpeed;
@@ -722,9 +743,82 @@ static void UBX_GetValues(
 			*max *= 100;
 		}
 		break;
-	case 4: // Total speed
+case MODE_Total_speed:
 		*val = (current->nav_velned.speed * 1024) / speed_mul;
 		break;
+		
+//Flyblind
+	case MODE_Direction_to_destination:
+		//check if too far from destination for Nav, would indicate user error with Lat & Lon
+		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
+		{
+			//check if above height tone should be silenced
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			{
+				tVal=calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
+				//check if heading not within 5 deg of bearing or tones needed for other measurement
+				if ((ABS(tVal) > 5) || (UBX_mode_2 != 5))
+				{
+					*min = -180;
+					*max = 180;
+					//manipulate tone so biggest change is at desired heading
+					if(tVal < 0)
+					{
+						*val = -180-tVal;
+					}
+					else
+					{
+						*val = 180-tVal;
+					}
+				}
+			}
+		}
+		break;
+	case MODE_Distance_to_destination:
+		*min = 0;
+		if(UBX_max_dist != 0 )
+		{
+			*max = UBX_max_dist;
+		}
+		else
+		{
+			*max = 10000; //set a default maximum value
+		}
+		*val = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon);
+		if(*val < *max)
+		{
+			*val = *max-*val;  //make inverse so higher pitch/Hz indicates shorter distance
+		}
+		else
+		{
+			*val = 0;  //set to lowest pitch/Hz
+		}
+		break;
+	case MODE_Direction_to_bearing:
+			//check if above height tone should be silenced
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			{
+				tVal=calcRelBearing(UBX_bearing,current->nav_velned.heading);
+				//check if heading not within 5 deg of bearing or tones needed for other measurement
+				if ((ABS(tVal) > 5) || (UBX_mode_2 != 5))
+				{
+					*min = -180;
+					*max = 180;
+					//manipulate tone so biggest change is at desired heading
+					if(tVal < 0)
+					{
+						*val = -180-tVal;
+					}
+					else
+					{
+						*val = 180-tVal;
+					}
+				}
+			}
+
+
+		break;
+//Flyblind	
 	}
 }
 
@@ -769,26 +863,43 @@ static void UBX_SpeakValue(void)
 
 	switch (UBX_sp_mode)
 	{
-	case 0: // Horizontal speed
+	case MODE_Horizontal_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.gSpeed * 1024) / speed_mul, 2, 1, 0);
 		break;
-	case 1: // Vertical speed
+	case MODE_Vertical_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.velD * 1024) / speed_mul, 2, 1, 0);
 		break;
-	case 2: // Glide ratio
+	case MODE_Glide_ratio:
 		if (current->nav_velned.velD != 0)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.gSpeed / current->nav_velned.velD, 2, 1, 0);
 		}
 		break;
-	case 3: // Inverse glide ratio
+	case MODE_Inverse_glide_ratio:
 		if (current->nav_velned.gSpeed != 0)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.velD / current->nav_velned.gSpeed, 2, 1, 0);
 		}
 		break;
-	case 4: // Total speed
+	case MODE_Total_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.speed * 1024) / speed_mul, 2, 1, 0);
+		break;
+	case MODE_Direction_to_destination:
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading), 0, 0, 0);
+		break;
+	case MODE_Distance_to_destination:
+		switch (UBX_sp_units)
+		{
+		case UBX_UNITS_KMH:
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) / 10, 2, 1, 0);
+			break;
+		case UBX_UNITS_MPH:
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 5) / 80, 2, 1, 0);
+			break;
+		}
+		break;
+	case MODE_Direction_to_bearing:
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcRelBearing(UBX_bearing,current->nav_velned.heading), 0, 0, 0);
 		break;
 	}
 
@@ -824,28 +935,57 @@ static void UBX_HandleVelocity(void)
 		UBX_sp_counter = 0;
 	}
 
-	if (UBX_mode_2 == 8)
-	{
-		UBX_GetValues(UBX_mode, &val_2, &min_2, &max_2);
-		if (val_2 != UBX_INVALID_VALUE)
+	switch (UBX_mode_2)
 		{
-			val_2 = ABS(val_2);
-		}
-	}
-	else if (UBX_mode_2 == 9)
-	{
-		x2 = x1;
-		x1 = x0;
-		x0 = val_1;
+		case MODE_Direction_to_destination:
+			if (UBX_mode == MODE_Direction_to_destination)  //no need to re-calculate direction
+			{
+				val_2 = ABS(val_1);
+			}
+			else
+			{
+				val_2 = ABS(calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading));
+				val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+			}
+			min_2 = 0;
+			max_2 = 180;
+			break;
+		case MODE_Direction_to_bearing:
+			if (UBX_mode == MODE_Direction_to_bearing)  //no need to re-calculate direction
+			{
+				val_2 = ABS(val_1);
+			}
+			else
+			{
+				val_2 = ABS(calcRelBearing(UBX_bearing,current->nav_velned.heading));
+				val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+			}
+			min_2 = 0;
+			max_2 = 180;
+			break;
+		case MODE_Magnitude_of_Value_1:
+			UBX_GetValues(UBX_mode, &val_2, &min_2, &max_2);
+			if (val_2 != UBX_INVALID_VALUE)
+			{
+				val_2 = ABS(val_2);
+			}
+			break;
+		case MODE_Change_in_Value_1:
+			x2 = x1;
+			x1 = x0;
+			x0 = val_1;
 
-		if (x0 != UBX_INVALID_VALUE && 
-		    x1 != UBX_INVALID_VALUE && 
-			x2 != UBX_INVALID_VALUE)
-		{
-			val_2 = (int32_t) 1000 * (x2 - x0) / (2 * UBX_rate);
-			val_2 = (int32_t) 10000 * ABS(val_2) / ABS(max_1 - min_1);
+			if (x0 != UBX_INVALID_VALUE && 
+				x1 != UBX_INVALID_VALUE && 
+				x2 != UBX_INVALID_VALUE)
+			{
+				val_2 = (int32_t) 1000 * (x2 - x0) / (2 * UBX_rate);
+				val_2 = (int32_t) 10000 * ABS(val_2) / ABS(max_1 - min_1);
+			}
+			break;
+		default:
+			UBX_GetValues(UBX_mode_2, &val_2, &min_2, &max_2);
 		}
-	}
 
 	if (UBX_hasFix && !UBX_suppress_tone)
 	{

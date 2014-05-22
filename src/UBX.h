@@ -39,6 +39,15 @@ extern uint8_t   UBX_sp_units;
 extern uint16_t  UBX_sp_rate;
 extern uint8_t   UBX_sp_decimals;
 
+//Flyblind 
+extern int32_t   UBX_dLat;
+extern int32_t   UBX_dLon;
+extern int16_t   UBX_dEle;
+extern int16_t   UBX_bearing;
+extern uint16_t  UBX_end_nav;
+extern uint16_t  UBX_max_dist;
+//Flyblind
+
 void UBX_Init(void);
 void UBX_Task(void);
 void UBX_Update(void);
