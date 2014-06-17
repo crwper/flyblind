@@ -68,6 +68,15 @@
 #define MODE_Magnitude_of_Value_1       8
 #define MODE_Change_in_Value_1          9
 
+#define MODEL_Portable                  0
+#define MODEL_Stationary                2
+#define MODEL_Pedestrian                3
+#define MODEL_Automotive                4
+#define MODEL_Sea                       5
+#define MODEL_Airborne1G                6
+#define MODEL_Airborne2G                7
+#define MODEL_Airborne4G                8
+
 #define UBX_BUFFER_LEN      4
 
 static const uint16_t UBX_sas_table[] PROGMEM =
@@ -232,13 +241,13 @@ typedef struct
 }
 UBX_ack_nak;
 
-uint8_t  UBX_model         = 6;
+uint8_t  UBX_model         = MODEL_Airborne1G;
 uint16_t UBX_rate          = 200;
-uint8_t  UBX_mode          = 2;
+uint8_t  UBX_mode          = MODE_Glide_ratio;
 int32_t  UBX_min           = 0;
 int32_t  UBX_max           = 300;
 
-uint8_t  UBX_mode_2        = 9;
+uint8_t  UBX_mode_2        = MODE_Change_in_Value_1;
 int32_t  UBX_min_2         = 300;
 int32_t  UBX_max_2         = 1500;
 uint32_t UBX_min_rate      = 100;
@@ -247,7 +256,7 @@ uint8_t  UBX_flatline      = 0;
 uint8_t  UBX_limits        = 1;
 uint8_t  UBX_use_sas       = 1;
 
-uint8_t  UBX_sp_mode       = 2;
+uint8_t  UBX_sp_mode       = MODE_Glide_ratio;
 uint8_t  UBX_sp_units      = UBX_UNITS_MPH;
 uint16_t UBX_sp_rate       = 0;
 uint8_t  UBX_sp_decimals   = 0;
@@ -262,8 +271,8 @@ uint8_t   UBX_num_alarms   = 0;
 uint32_t  UBX_alarm_window = 0;
 
 //Flyblind
-int32_t  UBX_dLat          = 533230827;
-int32_t  UBX_dLon          = -62795346;
+int32_t  UBX_dLat          = 0;
+int32_t  UBX_dLon          = 0;
 int16_t  UBX_dEle          = 0;
 int16_t  UBX_bearing       = 0;
 uint16_t UBX_end_nav       = 0;
@@ -827,7 +836,9 @@ static void UBX_SpeakValue(void)
 	UBX_saved_t *current = UBX_saved + (UBX_write % UBX_BUFFER_LEN);
 
 	uint16_t speed_mul = 1024;
-
+    
+	char *end_ptr;
+	
 	if (UBX_use_sas)
 	{
 		if (current->nav_pos_llh.height < 0)
@@ -859,8 +870,13 @@ static void UBX_SpeakValue(void)
 		break;
 	}
 
-	UBX_speech_ptr = UBX_speech_buf + sizeof(UBX_speech_buf);
+	// Step 0: Initialize speech pointers, leaving room at the end for one unit character
 
+	UBX_speech_ptr = UBX_speech_buf + sizeof(UBX_speech_buf) - 1;
+	end_ptr = UBX_speech_ptr;
+
+	// Step 1: Get speech value with 2 decimal places
+    int32_t tVal;
 	switch (UBX_sp_mode)
 	{
 	case MODE_Horizontal_speed:
@@ -885,32 +901,60 @@ static void UBX_SpeakValue(void)
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.speed * 1024) / speed_mul, 2, 1, 0);
 		break;
 	case MODE_Direction_to_destination:
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading), 0, 0, 0);
+		tVal = calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal), 0, 0, 0);
 		break;
 	case MODE_Distance_to_destination:
 		switch (UBX_sp_units)
 		{
 		case UBX_UNITS_KMH:
-			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) / 10, 2, 1, 0);
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) / 10, 2, 1, 0);
 			break;
 		case UBX_UNITS_MPH:
-			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 5) / 80, 2, 1, 0);
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 5) / 80, 2, 1, 0);
 			break;
 		}
 		break;
 	case MODE_Direction_to_bearing:
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr + 1, calcRelBearing(UBX_bearing,current->nav_velned.heading), 0, 0, 0);
+		tVal = calcRelBearing(UBX_bearing,current->nav_velned.heading);
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal), 0, 0, 0);
 		break;
 	}
 
-	if (UBX_sp_decimals == 0)
-	{
-		UBX_speech_buf[sizeof(UBX_speech_buf) - 4] = 0;
-	}
-	else
-	{
-		UBX_speech_buf[sizeof(UBX_speech_buf) - 3 + UBX_sp_decimals] = 0;
-	}
+    if (UBX_sp_decimals == 0) end_ptr -= 3;
+	else                      end_ptr -= 2 - UBX_sp_decimals;
+	
+	// Step 3: Add units if needed, e.g., *(++end_ptr) = 'k';
+
+	switch (UBX_sp_mode)
+ 	{
+	case MODE_Direction_to_destination: case MODE_Direction_to_bearing:
+		if(tVal < 0)
+		{
+			*(++end_ptr) = 'l';
+		}
+		else
+		{
+			*(++end_ptr) = 'r';
+		}	
+		break;
+	case MODE_Distance_to_destination:
+		switch (UBX_sp_units)
+		{
+		case UBX_UNITS_KMH:
+			*(++end_ptr) = 'k';
+			break;
+		case UBX_UNITS_MPH:
+			*(++end_ptr) = 'i';
+			break;
+		}	    
+		break;
+ 	}
+
+	// Step 4: Terminate with a null
+
+	*(--end_ptr) = 0;
+	
 }
 
 static void UBX_HandleVelocity(void)
@@ -1191,6 +1235,8 @@ void UBX_Task(void)
 		*(--ptr) = '\n';
 		ptr = Log_WriteInt32ToBuf(ptr, current->nav_sol.numSV,     0, 0, '\r');
 		ptr = Log_WriteInt32ToBuf(ptr, current->nav_sol.gpsFix,    0, 0, ',');
+		ptr = Log_WriteInt32ToBuf(ptr, current->nav_velned.cAcc,   5, 1, ',');
+		ptr = Log_WriteInt32ToBuf(ptr, current->nav_velned.heading,5, 1, ',');
 		ptr = Log_WriteInt32ToBuf(ptr, current->nav_velned.sAcc,   2, 1, ',');
 		ptr = Log_WriteInt32ToBuf(ptr, current->nav_pos_llh.vAcc,  3, 1, ',');
 		ptr = Log_WriteInt32ToBuf(ptr, current->nav_pos_llh.hAcc,  3, 1, ',');
@@ -1234,6 +1280,22 @@ void UBX_Task(void)
 		else if (*UBX_speech_ptr == '.')
 		{
 			Tone_Play("dot.wav");
+		}
+		else if (*UBX_speech_ptr == 'l')
+		{
+			Tone_Play("left.wav");
+		}
+		else if (*UBX_speech_ptr == 'r')
+		{
+			Tone_Play("right.wav");
+		}
+		else if (*UBX_speech_ptr == 'i')
+		{
+			Tone_Play("miles.wav");
+		}
+		else if (*UBX_speech_ptr == 'k')
+		{
+			Tone_Play("kilometers.wav");
 		}
 		else if (*UBX_speech_ptr >= '0' && *UBX_speech_ptr <= '9')
 		{

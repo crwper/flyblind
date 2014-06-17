@@ -139,9 +139,11 @@ Alarm_Type:    0 ; Alarm type\r\n\
                      ;   e.g. -79.387 should be entered as -793870000 \r\n\
 	  \r\n\
 Elevation: 71        ; Elevation of destination (m)\r\n\
+                     ;   Max value = 3000\r\n\
 \r\n\
-  End_Nav: 500       ; Minimum height above elevation for tone (Modes 5 & 7)\r\n\
+  End_Nav: 500       ; Minimum height above elevation for tone (Modes 5 & 7) (m)\r\n\
                      ;   0 = Disable\r\n\
+                     ;   Max value = 3000\r\n\
  Max_Dist: 10000     ; Maximum distance from destination for tone (Modes 5 & 7) (m)\r\n\
                      ;   0 = Disable\r\n\
                      ;   Max value = 10000\r\n" ;
@@ -235,7 +237,7 @@ void Config_Read(void)
 		result = strtok(0, " \t:");
 		if (result == 0) continue ;
 		
-		val = atoi(result);
+		val = atol(result);
 		
 		#define HANDLE_VALUE(s,w,r,t) \
 			if ((t) && !strcmp_P(name, (s))) { (w) = (r); }

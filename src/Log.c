@@ -16,8 +16,8 @@ static uint8_t Log_initialized = 0;
 static DWORD   Log_fattime;
 
 static const char Log_header[] PROGMEM = 
-	"time,lat,lon,hMSL,velN,velE,velD,hAcc,vAcc,sAcc,gpsFix,numSV\r\n"
-	",(deg),(deg),(m),(m/s),(m/s),(m/s),(m),(m),(m/s),,,\r\n";
+	"time,lat,lon,hMSL,velN,velE,velD,hAcc,vAcc,sAcc,heading,cAcc,gpsFix,numSV\r\n"
+	",(deg),(deg),(m),(m/s),(m/s),(m/s),(m),(m),(m/s),(deg),(deg),,,\r\n";
 
 DWORD get_fattime(void)
 {
