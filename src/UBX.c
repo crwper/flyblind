@@ -876,7 +876,7 @@ static void UBX_SpeakValue(void)
 	end_ptr = UBX_speech_ptr;
 
 	// Step 1: Get speech value with 2 decimal places
-    int32_t tVal;
+	int32_t tVal;
 	switch (UBX_sp_mode)
 	{
 	case MODE_Horizontal_speed:
@@ -921,39 +921,26 @@ static void UBX_SpeakValue(void)
 		break;
 	}
 
-    if (UBX_sp_decimals == 0) end_ptr -= 3;
-	else                      end_ptr -= 2 - UBX_sp_decimals;
+    if (UBX_sp_decimals == 0) end_ptr -= 4;
+	else                      end_ptr -= 3 - UBX_sp_decimals;
 	
 	// Step 3: Add units if needed, e.g., *(++end_ptr) = 'k';
 
 	switch (UBX_sp_mode)
  	{
 	case MODE_Direction_to_destination: case MODE_Direction_to_bearing:
-		if(tVal < 0)
-		{
-			*(++end_ptr) = 'l';
-		}
-		else
-		{
-			*(++end_ptr) = 'r';
-		}	
+		if(tVal < 0)    *(end_ptr++) = 'l';
+		else			*(end_ptr++) = 'r';
 		break;
 	case MODE_Distance_to_destination:
-		switch (UBX_sp_units)
-		{
-		case UBX_UNITS_KMH:
-			*(++end_ptr) = 'k';
-			break;
-		case UBX_UNITS_MPH:
-			*(++end_ptr) = 'i';
-			break;
-		}	    
+		if (UBX_sp_units == UBX_UNITS_MPH)  *(end_ptr++) = 'i';
+		else								*(end_ptr++) = 'k';
 		break;
  	}
 
 	// Step 4: Terminate with a null
 
-	*(--end_ptr) = 0;
+	*(end_ptr++) = 0;
 	
 }
 
