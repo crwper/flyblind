@@ -1282,7 +1282,7 @@ void UBX_Task(void)
 		}
 		else if (*UBX_speech_ptr == 'k')
 		{
-			Tone_Play("kilometers.wav");
+			Tone_Play("KM.wav");
 		}
 		else if (*UBX_speech_ptr >= '0' && *UBX_speech_ptr <= '9')
 		{
