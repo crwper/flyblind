@@ -90,12 +90,13 @@ Sp_Mode:   2     ; Speech mode\r\n\
                  ;   5 = Direction to destination\r\n\
                  ;   6 = Distance to destination\r\n\
                  ;   7 = Direction to bearing\r\n\
-Sp_Units:  1     ; Speech units\r\n\
+Sp_Units:  0     ; Speech units\r\n\
                  ;   0 = km/h\r\n\
                  ;   1 = mph\r\n\
+                 ;   2 = kn\r\n\
 Sp_Rate:   0     ; Speech rate (s)\r\n\
                  ;   0 = No speech\r\n\
-Sp_Dec:    0     ; Decimal places for speech\r\n\
+Sp_Dec:    1     ; Decimal places for speech (0-2)\r\n\
 \r\n\
 ; Thresholds\r\n\
 \r\n\
@@ -137,14 +138,13 @@ Alarm_Type:    0 ; Alarm type\r\n\
                      ;   e.g. 43.6423 should be entered as 436423000 \r\n\
       Lon: -71192000 ; Longitude of destination (Decimal degrees *10,000,000)\r\n\
                      ;   e.g. -79.387 should be entered as -793870000 \r\n\
-	  \r\n\
 Elevation: 71        ; Elevation of destination (m)\r\n\
                      ;   Max value = 3000\r\n\
-\r\n\
-  End_Nav: 500       ; Minimum height above elevation for tone (Modes 5 & 7) (m)\r\n\
+  Bearing: 0         ; Bearing to follow (Degrees) (Mode 7)\r\n\
+  End_Nav: 500       ; Minimum height above elevation for tone (m) (Modes 5 & 7)\r\n\
                      ;   0 = Disable\r\n\
                      ;   Max value = 3000\r\n\
- Max_Dist: 10000     ; Maximum distance from destination for tone (Modes 5 & 7) (m)\r\n\
+ Max_Dist: 10000     ; Maximum distance from destination for tone (m) (Modes 5 & 7)\r\n\
                      ;   0 = Disable\r\n\
                      ;   Max value = 10000\r\n" ;
 
@@ -255,8 +255,8 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_Min_Rate,  UBX_min_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Max_Rate,  UBX_max_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Flatline,  UBX_flatline,     val, val == 0 || val == 1);
-		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 7);
-		HANDLE_VALUE(Config_Sp_Units,  UBX_sp_units,     val, val >= 0 && val <= 1);
+		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 9);
+		HANDLE_VALUE(Config_Sp_Units,  UBX_sp_units,     val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Sp_Rate,   UBX_sp_rate,      val * 1000, val >= 0 && val <= 32);
 		HANDLE_VALUE(Config_Sp_Dec,    UBX_sp_decimals,  val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_V_Thresh,  UBX_threshold,    val, TRUE);

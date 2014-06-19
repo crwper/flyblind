@@ -56,6 +56,7 @@
 
 #define UBX_UNITS_KMH       0
 #define UBX_UNITS_MPH       1
+#define UBX_UNITS_KN        2
 
 #define MODE_Horizontal_speed           0
 #define MODE_Vertical_speed             1
@@ -67,6 +68,18 @@
 #define MODE_Direction_to_bearing       7
 #define MODE_Magnitude_of_Value_1       8
 #define MODE_Change_in_Value_1          9
+
+#define SP_MODE_Horizontal_speed           0
+#define SP_MODE_Vertical_speed             1
+#define SP_MODE_Glide_ratio                2
+#define SP_MODE_Inverse_glide_ratio        3
+#define SP_MODE_Total_speed                4
+#define SP_MODE_Direction_to_destination   5
+#define SP_MODE_Distance_to_destination    6
+#define SP_MODE_Direction_to_bearing       7
+#define SP_MODE_Altitude                   8
+#define SP_MODE_Compass                    9
+
 
 #define MODEL_Portable                  0
 #define MODEL_Stationary                2
@@ -868,6 +881,9 @@ static void UBX_SpeakValue(void)
 	case UBX_UNITS_MPH:
 		speed_mul = (uint16_t) (((uint32_t) speed_mul * 29297) / 65536);
 		break;
+	case UBX_UNITS_KN:
+		speed_mul = (uint16_t) (((uint32_t) speed_mul * 33713) / 65536);
+		break;
 	}
 
 	// Step 0: Initialize speech pointers, leaving room at the end for one unit character
@@ -879,32 +895,34 @@ static void UBX_SpeakValue(void)
 	int32_t tVal;
 	switch (UBX_sp_mode)
 	{
-	case MODE_Horizontal_speed:
+	case SP_MODE_Horizontal_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.gSpeed * 1024) / speed_mul, 2, 1, 0);
 		break;
-	case MODE_Vertical_speed:
+	case SP_MODE_Vertical_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.velD * 1024) / speed_mul, 2, 1, 0);
 		break;
-	case MODE_Glide_ratio:
+	case SP_MODE_Glide_ratio:
 		if (current->nav_velned.velD != 0)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.gSpeed / current->nav_velned.velD, 2, 1, 0);
 		}
 		break;
-	case MODE_Inverse_glide_ratio:
+	case SP_MODE_Inverse_glide_ratio:
 		if (current->nav_velned.gSpeed != 0)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.velD / current->nav_velned.gSpeed, 2, 1, 0);
 		}
 		break;
-	case MODE_Total_speed:
+	case SP_MODE_Total_speed:
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.speed * 1024) / speed_mul, 2, 1, 0);
 		break;
-	case MODE_Direction_to_destination:
+	case SP_MODE_Direction_to_destination:
+	    UBX_sp_decimals = 0;
 		tVal = calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal), 0, 0, 0);
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal)*100, 2, 1, 0);
 		break;
-	case MODE_Distance_to_destination:
+	case SP_MODE_Distance_to_destination:
+		UBX_sp_decimals = 1;
 		switch (UBX_sp_units)
 		{
 		case UBX_UNITS_KMH:
@@ -913,11 +931,23 @@ static void UBX_SpeakValue(void)
 		case UBX_UNITS_MPH:
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 5) / 80, 2, 1, 0);
 			break;
+		case UBX_UNITS_KN:
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 100) / 1852, 2, 1, 0);
+			break;
 		}
 		break;
-	case MODE_Direction_to_bearing:
+	case SP_MODE_Direction_to_bearing:
+		UBX_sp_decimals = 0;
 		tVal = calcRelBearing(UBX_bearing,current->nav_velned.heading);
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal), 0, 0, 0);
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal)*100, 2, 1, 0);
+		break;
+	case SP_MODE_Altitude:
+		UBX_sp_decimals = 0;
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, ((current->nav_pos_llh.hMSL/10)-(UBX_dEle*100)), 2, 1, 0);
+		break;
+	case SP_MODE_Compass:
+		UBX_sp_decimals = 0;
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.heading/1000), 2, 1, 0);
 		break;
 	}
 
@@ -928,13 +958,26 @@ static void UBX_SpeakValue(void)
 
 	switch (UBX_sp_mode)
  	{
-	case MODE_Direction_to_destination: case MODE_Direction_to_bearing:
+	case SP_MODE_Direction_to_destination: case MODE_Direction_to_bearing:
 		if(tVal < 0)    *(end_ptr++) = 'l';
 		else			*(end_ptr++) = 'r';
 		break;
-	case MODE_Distance_to_destination:
-		if (UBX_sp_units == UBX_UNITS_MPH)  *(end_ptr++) = 'i';
-		else								*(end_ptr++) = 'k';
+	case SP_MODE_Distance_to_destination:
+		switch (UBX_sp_units)
+		{
+		case UBX_UNITS_MPH:
+			*(end_ptr++) = 'i';
+			break;
+		case UBX_UNITS_KMH:
+			*(end_ptr++) = 'k';
+			break;
+		case UBX_UNITS_KN:
+			*(end_ptr++) = 'n';
+			break;
+		}
+		break;
+	case SP_MODE_Altitude:
+		*(end_ptr++) = 'm';
 		break;
  	}
 
@@ -1284,6 +1327,22 @@ void UBX_Task(void)
 		{
 			Tone_Play("KM.wav");
 		}
+		else if (*UBX_speech_ptr == 'm')
+		{
+			Tone_Play("meters.wav");
+		}
+		else if (*UBX_speech_ptr == 'n')
+		{
+			Tone_Play("knots.wav");
+		}
+		else if (*UBX_speech_ptr == 'f')
+		{
+			Tone_Play("feet.wav");
+		}
+		else if (*UBX_speech_ptr == 'o')
+		{
+			Tone_Play("oclock.wav");
+		}
 		else if (*UBX_speech_ptr >= '0' && *UBX_speech_ptr <= '9')
 		{
 			buf[0] = *UBX_speech_ptr;
@@ -1295,7 +1354,18 @@ void UBX_Task(void)
 			
 			Tone_Play(buf);
 		}
-		
+		else if (*UBX_speech_ptr == 'a')
+		{
+			Tone_Play("10.wav");
+		}
+		else if (*UBX_speech_ptr == 'b')
+		{
+			Tone_Play("11.wav");
+		}
+		else if (*UBX_speech_ptr == 'c')
+		{
+			Tone_Play("12.wav");
+		}
 		++UBX_speech_ptr;
 	}
 }
