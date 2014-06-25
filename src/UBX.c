@@ -290,6 +290,7 @@ int16_t  UBX_dEle          = 0;
 int16_t  UBX_bearing       = 0;
 uint16_t UBX_end_nav       = 0;
 uint16_t UBX_max_dist      = 10000;
+uint16_t UBX_min_angle     = 5;
 //Flyblind
 typedef struct
 {
@@ -778,8 +779,8 @@ case MODE_Total_speed:
 			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
 			{
 				tVal=calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
-				//check if heading not within 5 deg of bearing or tones needed for other measurement
-				if ((ABS(tVal) > 5) || (UBX_mode_2 != 5))
+				//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
+				if ((ABS(tVal) > UBX_min_angle) || (UBX_mode_2 != MODE_Direction_to_destination) || (UBX_min_angle==0))
 				{
 					*min = -180;
 					*max = 180;
@@ -821,8 +822,8 @@ case MODE_Total_speed:
 			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
 			{
 				tVal=calcRelBearing(UBX_bearing,current->nav_velned.heading);
-				//check if heading not within 5 deg of bearing or tones needed for other measurement
-				if ((ABS(tVal) > 5) || (UBX_mode_2 != 5))
+				//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
+				if ((ABS(tVal) > UBX_min_angle) || (UBX_mode_2 != MODE_Direction_to_bearing) || (UBX_min_angle==0))
 				{
 					*min = -180;
 					*max = 180;
@@ -917,29 +918,44 @@ static void UBX_SpeakValue(void)
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.speed * 1024) / speed_mul, 2, 1, 0);
 		break;
 	case SP_MODE_Direction_to_destination:
-	    UBX_sp_decimals = 0;
-		tVal = calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal)*100, 2, 1, 0);
+		//check if too far from destination for Nav, would indicate user error with Lat & Lon
+		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
+		{
+			//check if above height tone should be silenced
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			{
+				UBX_sp_decimals = 0;
+				tVal = calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
+				UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, ABS(tVal)*100, 2, 1, 0);
+			}
+		}
 		break;
 	case SP_MODE_Distance_to_destination:
 		UBX_sp_decimals = 1;
+		tVal = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon);  // returns metres
 		switch (UBX_sp_units)
 		{
 		case UBX_UNITS_KMH:
-			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) / 10, 2, 1, 0);
+			tVal = tVal / 10;
 			break;
 		case UBX_UNITS_MPH:
-			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 5) / 80, 2, 1, 0);
+			tVal = (tVal * 100) / 1609;
 			break;
 		case UBX_UNITS_KN:
-			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) * 100) / 1852, 2, 1, 0);
+			tVal = (tVal * 100) / 1852;
 			break;
 		}
+		tVal = tVal + 5; //for correct rounding when reducing to one decimal place
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
 	case SP_MODE_Direction_to_bearing:
-		UBX_sp_decimals = 0;
-		tVal = calcRelBearing(UBX_bearing,current->nav_velned.heading);
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, abs(tVal)*100, 2, 1, 0);
+		//check if above height tone should be silenced
+		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+		{
+			UBX_sp_decimals = 0;
+			tVal = calcRelBearing(UBX_bearing,current->nav_velned.heading);
+			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, ABS(tVal)*100, 2, 1, 0);
+		}
 		break;
 	case SP_MODE_Altitude:
 		UBX_sp_decimals = 0;
@@ -948,6 +964,10 @@ static void UBX_SpeakValue(void)
 	case SP_MODE_Compass:
 		UBX_sp_decimals = 0;
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.heading/1000), 2, 1, 0);
+		break;
+	case 10:
+		tVal = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon)*10000/((current->nav_pos_llh.hMSL/10)-((UBX_dEle+1000)*100));
+		Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
 	}
 
@@ -959,8 +979,8 @@ static void UBX_SpeakValue(void)
 	switch (UBX_sp_mode)
  	{
 	case SP_MODE_Direction_to_destination: case MODE_Direction_to_bearing:
-		if(tVal < 0)    *(end_ptr++) = 'l';
-		else			*(end_ptr++) = 'r';
+		if(tVal < 0)			*(end_ptr++) = 'l';
+		else if (tVal > 0)		*(end_ptr++) = 'r';
 		break;
 	case SP_MODE_Distance_to_destination:
 		switch (UBX_sp_units)

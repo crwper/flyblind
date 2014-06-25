@@ -97,6 +97,7 @@ Sp_Units:  0     ; Speech units\r\n\
 Sp_Rate:   0     ; Speech rate (s)\r\n\
                  ;   0 = No speech\r\n\
 Sp_Dec:    1     ; Decimal places for speech (0-2)\r\n\
+                 ;   (Sp_Modes 0-4) \r\n\
 \r\n\
 ; Thresholds\r\n\
 \r\n\
@@ -141,12 +142,17 @@ Alarm_Type:    0 ; Alarm type\r\n\
 Elevation: 71        ; Elevation of destination (m)\r\n\
                      ;   Max value = 3000\r\n\
   Bearing: 0         ; Bearing to follow (Degrees) (Mode 7)\r\n\
-  End_Nav: 500       ; Minimum height above elevation for tone (m) (Modes 5 & 7)\r\n\
+ \r\n\
+ ; Flyblind silence settings\r\n\
+ \r\n\
+  End_Nav: 500       ; Minimum height above Elevation (m) for tone or speech (Modes/SP_Modes 5 & 7)\r\n\
                      ;   0 = Disable\r\n\
                      ;   Max value = 3000\r\n\
- Max_Dist: 10000     ; Maximum distance from destination for tone (m) (Modes 5 & 7)\r\n\
+ Max_Dist: 10000     ; Maximum distance from destination (m) for tone or speech (Mode/SP_Mode 5)\r\n\
                      ;   0 = Disable\r\n\
-                     ;   Max value = 10000\r\n" ;
+                     ;   Max value = 10000\r\n\
+					 \r\n\
+\r\n" ;
 
 static const char Config_Model[] PROGMEM      = "Model";
 static const char Config_Rate[] PROGMEM       = "Rate";
@@ -177,6 +183,7 @@ static const char Config_Elevation[] PROGMEM  = "Elevation";
 static const char Config_Bearing[] PROGMEM    = "Bearing";
 static const char Config_End_Nav[] PROGMEM    = "End_Nav";
 static const char Config_Max_Dist[] PROGMEM   = "Max_Dist";
+static const char Config_Min_Angle[] PROGMEM  = "Min_Angle";
 
 static void Config_WriteString_P(
 	const char *str,
@@ -255,7 +262,7 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_Min_Rate,  UBX_min_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Max_Rate,  UBX_max_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Flatline,  UBX_flatline,     val, val == 0 || val == 1);
-		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 9);
+		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 10);
 		HANDLE_VALUE(Config_Sp_Units,  UBX_sp_units,     val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Sp_Rate,   UBX_sp_rate,      val * 1000, val >= 0 && val <= 32);
 		HANDLE_VALUE(Config_Sp_Dec,    UBX_sp_decimals,  val, val >= 0 && val <= 2);
@@ -269,6 +276,7 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_Bearing,   UBX_bearing,      val, val >= 0 && val <= 360);
 		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val, val >= 0 && val <= 3000);
 		HANDLE_VALUE(Config_Max_Dist,  UBX_max_dist,     val, val >= 0 && val <= 10000);
+		HANDLE_VALUE(Config_Min_Angle, UBX_min_angle,    val, val >= 0 && val <= 360);
 		
 		#undef HANDLE_VALUE
 		
