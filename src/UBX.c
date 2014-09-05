@@ -322,9 +322,9 @@ static          uint8_t UBX_suppress_tone = 0;
 static char UBX_speech_buf[16] = "\0";
 static char *UBX_speech_ptr = UBX_speech_buf;
 
-static const char UBX_header[] PROGMEM = 
-	"time,lat,lon,hMSL,velN,velE,velD,hAcc,vAcc,sAcc,gpsFix,numSV\r\n"
-	",(deg),(deg),(m),(m/s),(m/s),(m/s),(m),(m),(m/s),,,\r\n";
+static const char Log_header[] PROGMEM = 
+	"time,lat,lon,hMSL,velN,velE,velD,hAcc,vAcc,sAcc,heading,cAcc,gpsFix,numSV\r\n"
+	",(deg),(deg),(m),(m/s),(m/s),(m/s),(m),(m),(m/s),(deg),(deg),,,\r\n";
 
 void UBX_Update(void)
 {
