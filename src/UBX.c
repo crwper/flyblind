@@ -92,6 +92,12 @@
 
 #define UBX_BUFFER_LEN      4
 
+#define UBX_MSG_POSLLH      0x01
+#define UBX_MSG_SOL         0x02
+#define UBX_MSG_VELNED      0x04
+#define UBX_MSG_TIMEUTC     0x08
+#define UBX_MSG_ALL         (UBX_MSG_POSLLH | UBX_MSG_SOL | UBX_MSG_VELNED | UBX_MSG_TIMEUTC)
+
 static const uint16_t UBX_sas_table[] PROGMEM =
 {
 	1024, 1077, 1135, 1197,
@@ -292,6 +298,10 @@ uint16_t UBX_end_nav       = 0;
 uint16_t UBX_max_dist      = 10000;
 uint16_t UBX_min_angle     = 5;
 //Flyblind
+
+static uint32_t UBX_time_of_week = 0;
+static uint8_t  UBX_msg_received = 0;
+
 typedef struct
 {
 	UBX_nav_posllh  nav_pos_llh;
@@ -311,6 +321,10 @@ static          uint8_t UBX_suppress_tone = 0;
 
 static char UBX_speech_buf[16] = "\0";
 static char *UBX_speech_ptr = UBX_speech_buf;
+
+static const char UBX_header[] PROGMEM = 
+	"time,lat,lon,hMSL,velN,velE,velD,hAcc,vAcc,sAcc,gpsFix,numSV\r\n"
+	",(deg),(deg),(m),(m/s),(m/s),(m/s),(m),(m),(m/s),,,\r\n";
 
 void UBX_Update(void)
 {
@@ -537,6 +551,51 @@ static void UBX_SendMessage(
 	uart_putc(ck_b);
 }
 
+static void UBX_ReceiveMessage(
+	uint8_t msg_received, 
+	uint32_t time_of_week)
+{
+	UBX_saved_t *current = UBX_saved + (UBX_write % UBX_BUFFER_LEN);
+
+	if (time_of_week != UBX_time_of_week)
+	{
+		UBX_time_of_week = time_of_week;
+		UBX_msg_received = 0;
+	}
+
+	UBX_msg_received |= msg_received;
+
+	if (UBX_msg_received == UBX_MSG_ALL)
+	{
+		if (current->nav_sol.gpsFix == 3)
+		{
+			if (!Log_IsInitialized())
+			{
+				Power_Hold();
+				
+				Log_Init(
+					current->nav_timeutc.year,
+					current->nav_timeutc.month,
+					current->nav_timeutc.day,
+					current->nav_timeutc.hour,
+					current->nav_timeutc.min,
+					current->nav_timeutc.sec);
+
+				Log_WriteString(UBX_header);
+			
+				Log_Flush();
+				Power_Release();
+
+				Tone_Beep(TONE_MAX_PITCH - 1, 0, TONE_LENGTH_125_MS);
+			}
+			
+			++UBX_write;
+		}
+
+		UBX_msg_received = 0;
+	}
+}
+
 static void UBX_SetTone(
 	int32_t val_1,
 	int32_t min_1,
@@ -625,6 +684,7 @@ static void UBX_HandleNavSol(void)
 	UBX_saved_t *current = UBX_saved + (UBX_write % UBX_BUFFER_LEN);
 	
 	current->nav_sol = *((UBX_nav_sol *) UBX_payload);
+	UBX_ReceiveMessage(UBX_MSG_SOL, current->nav_sol.iTOW);
 
 	UBX_prevFix = UBX_hasFix;
 
@@ -649,6 +709,8 @@ static void UBX_HandlePosition(void)
 	uint8_t i, suppress_tone;
 
 	current->nav_pos_llh = *((UBX_nav_posllh *) UBX_payload);
+	UBX_ReceiveMessage(UBX_MSG_POSLLH, current->nav_pos_llh.iTOW);
+
 	hMSL = current->nav_pos_llh.hMSL;
 
 	if (UBX_hasFix && UBX_prevFix)
@@ -740,8 +802,8 @@ static void UBX_GetValues(
 			speed_mul = y1 + ((y2 - y1) * j) / 1024;
 		}
 	}
-int32_t tVal;
 
+	int32_t tVal;
 	switch (mode)
 	{
 	case MODE_Horizontal_speed:
@@ -766,7 +828,7 @@ int32_t tVal;
 			*max *= 100;
 		}
 		break;
-case MODE_Total_speed:
+	case MODE_Total_speed:
 		*val = (current->nav_velned.speed * 1024) / speed_mul;
 		break;
 		
@@ -893,6 +955,7 @@ static void UBX_SpeakValue(void)
 	end_ptr = UBX_speech_ptr;
 
 	// Step 1: Get speech value with 2 decimal places
+
 	int32_t tVal;
 	switch (UBX_sp_mode)
 	{
@@ -912,6 +975,10 @@ static void UBX_SpeakValue(void)
 		if (current->nav_velned.gSpeed != 0)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.velD / current->nav_velned.gSpeed, 2, 1, 0);
+		}
+		else
+		{
+			*(--UBX_speech_ptr) = 0;
 		}
 		break;
 	case SP_MODE_Total_speed:
@@ -970,6 +1037,8 @@ static void UBX_SpeakValue(void)
 		Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
 	}
+	
+	// Step 2: Truncate to the desired number of decimal places
 
     if (UBX_sp_decimals == 0) end_ptr -= 4;
 	else                      end_ptr -= 3 - UBX_sp_decimals;
@@ -1017,6 +1086,7 @@ static void UBX_HandleVelocity(void)
 	UBX_saved_t *current = UBX_saved + (UBX_write % UBX_BUFFER_LEN);
 	
 	current->nav_velned = *((UBX_nav_velned *) UBX_payload);
+	UBX_ReceiveMessage(UBX_MSG_VELNED, current->nav_velned.iTOW);
 
 	if (ABS(current->nav_velned.velD) >= UBX_threshold && 
 	    current->nav_velned.gSpeed >= UBX_hThreshold)
@@ -1030,56 +1100,56 @@ static void UBX_HandleVelocity(void)
 	}
 
 	switch (UBX_mode_2)
+	{
+	case MODE_Direction_to_destination:
+		if (UBX_mode == MODE_Direction_to_destination)  //no need to re-calculate direction
 		{
-		case MODE_Direction_to_destination:
-			if (UBX_mode == MODE_Direction_to_destination)  //no need to re-calculate direction
-			{
-				val_2 = ABS(val_1);
-			}
-			else
-			{
-				val_2 = ABS(calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading));
-				val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
-			}
-			min_2 = 0;
-			max_2 = 180;
-			break;
-		case MODE_Direction_to_bearing:
-			if (UBX_mode == MODE_Direction_to_bearing)  //no need to re-calculate direction
-			{
-				val_2 = ABS(val_1);
-			}
-			else
-			{
-				val_2 = ABS(calcRelBearing(UBX_bearing,current->nav_velned.heading));
-				val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
-			}
-			min_2 = 0;
-			max_2 = 180;
-			break;
-		case MODE_Magnitude_of_Value_1:
-			UBX_GetValues(UBX_mode, &val_2, &min_2, &max_2);
-			if (val_2 != UBX_INVALID_VALUE)
-			{
-				val_2 = ABS(val_2);
-			}
-			break;
-		case MODE_Change_in_Value_1:
-			x2 = x1;
-			x1 = x0;
-			x0 = val_1;
-
-			if (x0 != UBX_INVALID_VALUE && 
-				x1 != UBX_INVALID_VALUE && 
-				x2 != UBX_INVALID_VALUE)
-			{
-				val_2 = (int32_t) 1000 * (x2 - x0) / (2 * UBX_rate);
-				val_2 = (int32_t) 10000 * ABS(val_2) / ABS(max_1 - min_1);
-			}
-			break;
-		default:
-			UBX_GetValues(UBX_mode_2, &val_2, &min_2, &max_2);
+			val_2 = ABS(val_1);
 		}
+		else
+		{
+			val_2 = ABS(calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading));
+			val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+		}
+		min_2 = 0;
+		max_2 = 180;
+		break;
+	case MODE_Direction_to_bearing:
+		if (UBX_mode == MODE_Direction_to_bearing)  //no need to re-calculate direction
+		{
+			val_2 = ABS(val_1);
+		}
+		else
+		{
+			val_2 = ABS(calcRelBearing(UBX_bearing,current->nav_velned.heading));
+			val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+		}
+		min_2 = 0;
+		max_2 = 180;
+		break;
+	case MODE_Magnitude_of_Value_1:
+		UBX_GetValues(UBX_mode, &val_2, &min_2, &max_2);
+		if (val_2 != UBX_INVALID_VALUE)
+		{
+			val_2 = ABS(val_2);
+		}
+		break;
+	case MODE_Change_in_Value_1:
+		x2 = x1;
+		x1 = x0;
+		x0 = val_1;
+
+		if (x0 != UBX_INVALID_VALUE && 
+			x1 != UBX_INVALID_VALUE && 
+			x2 != UBX_INVALID_VALUE)
+		{
+			val_2 = (int32_t) 1000 * (x2 - x0) / (2 * UBX_rate);
+			val_2 = (int32_t) 10000 * ABS(val_2) / ABS(max_1 - min_1);
+		}
+		break;
+	default:
+		UBX_GetValues(UBX_mode_2, &val_2, &min_2, &max_2);
+	}
 
 	if (UBX_hasFix && !UBX_suppress_tone)
 	{
@@ -1101,35 +1171,11 @@ static void UBX_HandleTimeUTC(void)
 	UBX_saved_t *current = UBX_saved + (UBX_write % UBX_BUFFER_LEN);
 	
 	current->nav_timeutc = *((UBX_nav_timeutc *) UBX_payload);
-
-	if (UBX_hasFix)
-	{
-		if (!Log_IsInitialized())
-		{
-			Power_Hold();
-			
-			Log_Init(
-				current->nav_timeutc.year,
-				current->nav_timeutc.month,
-				current->nav_timeutc.day,
-				current->nav_timeutc.hour,
-				current->nav_timeutc.min,
-				current->nav_timeutc.sec);
-		
-			Log_Flush();
-			Power_Release();
-
-			Tone_Beep(TONE_MAX_PITCH - 1, 0, TONE_LENGTH_125_MS);
-		}
-		
-		++UBX_write;
-	}
+	UBX_ReceiveMessage(UBX_MSG_TIMEUTC, current->nav_timeutc.iTOW);
 }
 
 static void UBX_HandleMessage(void)
 {
-	// NOTE: Messages come in the order below.
-
 #ifdef TONE_DEBUG
 	if (UBX_read + UBX_BUFFER_LEN == UBX_write)
 	{

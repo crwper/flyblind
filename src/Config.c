@@ -5,6 +5,7 @@
 
 #include "Board/LEDs.h"
 #include "FatFS/ff.h"
+#include "Log.h"
 #include "Main.h"
 #include "Tone.h"
 #include "UBX.h"
@@ -109,6 +110,13 @@ H_Thresh:  0     ; Minimum horizontal speed for tone (cm/s)\r\n\
 Use_SAS:   1     ; Use skydiver's airspeed\r\n\
                  ;   0 = No\r\n\
                  ;   1 = Yes\r\n\
+TZ_Offset: 0     ; Timezone offset of output files in seconds\r\n\
+                 ;   -14400 = UTC-4 (EDT)\r\n\
+                 ;   -18000 = UTC-5 (EST, CDT)\r\n\
+                 ;   -21600 = UTC-6 (CST, MDT)\r\n\
+                 ;   -25200 = UTC-7 (MST, PDT)\r\n\
+                 ;   -28800 = UTC-8 (PST)\r\n\
+\r\n\
 \r\n\
 ; Alarm settings\r\n\
 \r\n\
@@ -184,6 +192,7 @@ static const char Config_Bearing[] PROGMEM    = "Bearing";
 static const char Config_End_Nav[] PROGMEM    = "End_Nav";
 static const char Config_Max_Dist[] PROGMEM   = "Max_Dist";
 static const char Config_Min_Angle[] PROGMEM  = "Min_Angle";
+static const char Config_TZ_Offset[] PROGMEM  = "TZ_Offset";
 
 static void Config_WriteString_P(
 	const char *str,
@@ -277,6 +286,7 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val, val >= 0 && val <= 3000);
 		HANDLE_VALUE(Config_Max_Dist,  UBX_max_dist,     val, val >= 0 && val <= 10000);
 		HANDLE_VALUE(Config_Min_Angle, UBX_min_angle,    val, val >= 0 && val <= 360);
+		HANDLE_VALUE(Config_TZ_Offset, Log_tz_offset,    val, TRUE);
 		
 		#undef HANDLE_VALUE
 		
