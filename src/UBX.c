@@ -581,7 +581,7 @@ static void UBX_ReceiveMessage(
 					current->nav_timeutc.min,
 					current->nav_timeutc.sec);
 
-				Log_WriteString(UBX_header);
+				Log_WriteString(Log_header);
 			
 				Log_Flush();
 				Power_Release();
