@@ -68,6 +68,7 @@
 #define MODE_Direction_to_bearing       7
 #define MODE_Magnitude_of_Value_1       8
 #define MODE_Change_in_Value_1          9
+#define MODE_LeftRight                 10
 
 #define SP_MODE_Horizontal_speed           0
 #define SP_MODE_Vertical_speed             1
@@ -820,19 +821,27 @@ static void UBX_GetValues(
 		*val = (current->nav_velned.velD * 1024) / speed_mul;
 		break;
 	case MODE_Glide_ratio:
+		*min *= 100;
+		*max *= 100;
 		if (current->nav_velned.velD != 0)
 		{
 			*val = 10000 * (int32_t) current->nav_velned.gSpeed / current->nav_velned.velD;
-			*min *= 100;
-			*max *= 100;
+		}
+		else
+		{
+			*val = 0;
 		}
 		break;
 	case MODE_Inverse_glide_ratio:
+		*min *= 100;
+		*max *= 100;
 		if (current->nav_velned.gSpeed != 0)
 		{
 			*val = 10000 * current->nav_velned.velD / (int32_t) current->nav_velned.gSpeed;
-			*min *= 100;
-			*max *= 100;
+		}
+		else
+		{
+			*val = 0;
 		}
 		break;
 	case MODE_Total_speed:
@@ -879,7 +888,7 @@ static void UBX_GetValues(
 		*val = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon);
 		if(*val < *max)
 		{
-			*val = *max-*val;  //make inverse so higher pitch/Hz indicates shorter distance
+			*val = *max-*val;  //make inverse so higher pitch indicates shorter distance
 		}
 		else
 		{
@@ -887,28 +896,54 @@ static void UBX_GetValues(
 		}
 		break;
 	case MODE_Direction_to_bearing:
+		//check if above height tone should be silenced
+		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+		{
+			tVal=calcRelBearing(UBX_bearing,current->nav_velned.heading);
+			//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
+			if ((ABS(tVal) > UBX_min_angle) || (UBX_mode_2 != MODE_Direction_to_bearing) || (UBX_min_angle==0))
+			{
+				*min = -180;
+				*max = 180;
+				//manipulate tone so biggest change is at desired heading
+				if(tVal < 0)
+				{
+					*val = -180-tVal;
+				}
+				else
+				{
+					*val = 180-tVal;
+				}
+			}
+		}
+		break;
+	case MODE_LeftRight:
+		//check if too far from destination for Nav, would indicate user error with Lat & Lon
+		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
+		{
 			//check if above height tone should be silenced
 			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
 			{
-				tVal=calcRelBearing(UBX_bearing,current->nav_velned.heading);
-				//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
-				if ((ABS(tVal) > UBX_min_angle) || (UBX_mode_2 != MODE_Direction_to_bearing) || (UBX_min_angle==0))
+				tVal=calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
+				*min = 0;
+				*max = 10;
+				if(ABS(tVal) > UBX_min_angle)
 				{
-					*min = -180;
-					*max = 180;
-					//manipulate tone so biggest change is at desired heading
-					if(tVal < 0)
+					if(tVal < 0)   //left turn required  - low pitch tone
 					{
-						*val = -180-tVal;
+						*val = *min;
 					}
-					else
+					else           //right turn required - high pitch tone
 					{
-						*val = 180-tVal;
+						*val = *max;
 					}
 				}
+				else              //mid tone
+				{
+					*val = (*max-*min)/2;
+				}
 			}
-
-
+		}
 		break;
 //Flyblind	
 	}
@@ -977,6 +1012,10 @@ static void UBX_SpeakValue(void)
 		{
 			UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * (int32_t) current->nav_velned.gSpeed / current->nav_velned.velD, 2, 1, 0);
 		}
+		else
+		{
+			*(--UBX_speech_ptr) = 0;
+		}
 		break;
 	case SP_MODE_Inverse_glide_ratio:
 		if (current->nav_velned.gSpeed != 0)
@@ -1039,7 +1078,7 @@ static void UBX_SpeakValue(void)
 		UBX_sp_decimals = 0;
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.heading/1000), 2, 1, 0);
 		break;
-	case 10:
+	case 10:  //GR required to reach target at 1000m above elevation
 		tVal = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon)*10000/((current->nav_pos_llh.hMSL/10)-((UBX_dEle+1000)*100));
 		Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
@@ -1116,10 +1155,11 @@ static void UBX_HandleVelocity(void)
 		else
 		{
 			val_2 = ABS(calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading));
-			val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+			val_2 = 180-val_2;  //make inverse so faster rate indicates closer to bearing
 		}
+		val_2 = pow(val_2, 3);
 		min_2 = 0;
-		max_2 = 180;
+		max_2 = pow(180, 3);
 		break;
 	case MODE_Direction_to_bearing:
 		if (UBX_mode == MODE_Direction_to_bearing)  //no need to re-calculate direction
@@ -1129,7 +1169,7 @@ static void UBX_HandleVelocity(void)
 		else
 		{
 			val_2 = ABS(calcRelBearing(UBX_bearing,current->nav_velned.heading));
-			val_2 = 180-val_2;  //make inverse so higher pitch/Hz indicates shorter distance
+			val_2 = 180-val_2;  //make inverse so faster rate indicates closer to bearing
 		}
 		min_2 = 0;
 		max_2 = 180;

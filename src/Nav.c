@@ -66,8 +66,8 @@ int32_t round_nearest(float f)
  {
 	float cLat, cLon, dLat, dLon;
   	int heading;
-	int bear;  // bearing required to get from current position to destination
-	int relBear; // bearing change relative to current heading
+	int bearing;  // bearing required to get from current position to destination
+	int relBearing; // bearing change relative to current heading
 	
 	const int32_t GeoCo_Scale = 10000000;
 	const int32_t Heading_Scale = 100000;
@@ -81,10 +81,10 @@ int32_t round_nearest(float f)
     //convert heading
 	heading=round_nearest((float)head/Heading_Scale);
 	//calculate required bearing
-	bear = calcBearing(cLat,cLon,dLat,dLon);
+	bearing = calcBearing(cLat,cLon,dLat,dLon);
 	//calculate relative bearing
-	relBear = calcRelBearing(bear,heading);
-	return relBear;
+	relBearing = calcRelBearing(bearing,heading);
+	return relBearing;
  }
 
 //Calculate distance form lat1/lon1 to lat2/lon2 using haversine formula

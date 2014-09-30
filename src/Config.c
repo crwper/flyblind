@@ -32,7 +32,7 @@ Rate:      200   ; Measurement rate (ms)\r\n\
 \r\n\
 ; Tone settings\r\n\
 \r\n\
-Mode:      2     ; Measurement mode\r\n\
+Mode:      5     ; Measurement mode\r\n\
                  ;   0 = Horizontal speed\r\n\
                  ;   1 = Vertical speed\r\n\
                  ;   2 = Glide ratio\r\n\
@@ -55,7 +55,7 @@ Volume:    6     ; 0 (min) to 8 (max)\r\n\
 \r\n\
 ; Rate settings\r\n\
 \r\n\
-Mode_2:    9     ; Determines tone rate\r\n\
+Mode_2:    5     ; Determines tone rate\r\n\
                  ;   0 = Horizontal speed\r\n\
                  ;   1 = Vertical speed\r\n\
                  ;   2 = Glide ratio\r\n\
@@ -82,7 +82,7 @@ Flatline:  0     ; Flatline at minimum rate\r\n\
 \r\n\
 ; Speech settings\r\n\
 \r\n\
-Sp_Mode:   2     ; Speech mode\r\n\
+Sp_Mode:   6     ; Speech mode\r\n\
                  ;   0 = Horizontal speed\r\n\
                  ;   1 = Vertical speed\r\n\
                  ;   2 = Glide ratio\r\n\
@@ -91,18 +91,18 @@ Sp_Mode:   2     ; Speech mode\r\n\
                  ;   5 = Direction to destination\r\n\
                  ;   6 = Distance to destination\r\n\
                  ;   7 = Direction to bearing\r\n\
-Sp_Units:  0     ; Speech units\r\n\
+Sp_Units:  2     ; Speech units\r\n\
                  ;   0 = km/h\r\n\
                  ;   1 = mph\r\n\
                  ;   2 = kn\r\n\
-Sp_Rate:   0     ; Speech rate (s)\r\n\
+Sp_Rate:   8     ; Speech rate (s)\r\n\
                  ;   0 = No speech\r\n\
 Sp_Dec:    1     ; Decimal places for speech (0-2)\r\n\
                  ;   (Sp_Modes 0-4) \r\n\
 \r\n\
 ; Thresholds\r\n\
 \r\n\
-V_Thresh:  1000  ; Minimum vertical speed for tone (cm/s)\r\n\
+V_Thresh:  0     ; Minimum vertical speed for tone (cm/s)\r\n\
 H_Thresh:  0     ; Minimum horizontal speed for tone (cm/s)\r\n\
 \r\n\
 ; Miscellaneous\r\n\
@@ -111,6 +111,7 @@ Use_SAS:   1     ; Use skydiver's airspeed\r\n\
                  ;   0 = No\r\n\
                  ;   1 = Yes\r\n\
 TZ_Offset: 0     ; Timezone offset of output files in seconds\r\n\
+                 ;   3600   = UTC+1 (IST, BST)\r\n\
                  ;   -14400 = UTC-4 (EDT)\r\n\
                  ;   -18000 = UTC-5 (EST, CDT)\r\n\
                  ;   -21600 = UTC-6 (CST, MDT)\r\n\
@@ -260,7 +261,7 @@ void Config_Read(void)
 
 		HANDLE_VALUE(Config_Model,     UBX_model,        val, val >= 0 && val <= 8);
 		HANDLE_VALUE(Config_Rate,      UBX_rate,         val, val >= 100);
-		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, val >= 0 && val <= 7);
+		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, val >= 0 && val <= 10);
 		HANDLE_VALUE(Config_Min,       UBX_min,          val, TRUE);
 		HANDLE_VALUE(Config_Max,       UBX_max,          val, TRUE);
 		HANDLE_VALUE(Config_Limits,    UBX_limits,       val, val >= 0 && val <= 2);
