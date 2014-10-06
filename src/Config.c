@@ -99,7 +99,7 @@ Sp_Rate:   8     ; Speech rate (s)\r\n\
                  ;   0 = No speech\r\n\
 Sp_Dec:    0     ; Decimal places for speech\r\n\
                  ;   (Sp_Modes 0-4) \r\n\
-Sp_Volume: 6     ; 0 (min) to 8 (max)\r\n\
+Sp_Volume: 8     ; 0 (min) to 8 (max)\r\n\
 \r\n\
 ; Thresholds\r\n\
 \r\n\
