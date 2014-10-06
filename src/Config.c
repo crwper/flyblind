@@ -97,7 +97,7 @@ Sp_Units:  2     ; Speech units\r\n\
                  ;   2 = kn\r\n\
 Sp_Rate:   8     ; Speech rate (s)\r\n\
                  ;   0 = No speech\r\n\
-Sp_Dec:    0     ; Decimal places for speech\r\n\
+Sp_Dec:    1     ; Decimal places for speech (0-2)\r\n\
                  ;   (Sp_Modes 0-4) \r\n\
 Sp_Volume: 8     ; 0 (min) to 8 (max)\r\n\
 \r\n\
