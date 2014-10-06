@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -338,6 +339,8 @@ static enum
 	st_flush_3
 }
 UBX_state = st_idle;
+
+extern int disk_is_ready(void);
 
 void UBX_Update(void)
 {
@@ -1083,7 +1086,7 @@ static void UBX_UpdateTones(
 		max_2 = 180;
 		break;
 	case MODE_Magnitude_of_Value_1:
-		UBX_GetValues(UBX_mode, &val_2, &min_2, &max_2);
+		UBX_GetValues(current, UBX_mode, &val_2, &min_2, &max_2);
 		if (val_2 != UBX_INVALID_VALUE)
 		{
 			val_2 = ABS(val_2);
@@ -1103,7 +1106,7 @@ static void UBX_UpdateTones(
 		}
 		break;
 	default:
-		UBX_GetValues(UBX_mode_2, &val_2, &min_2, &max_2);
+		UBX_GetValues(current, UBX_mode_2, &val_2, &min_2, &max_2);
 	}
 
 	if (!UBX_suppress_tone)
