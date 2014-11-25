@@ -294,11 +294,11 @@ uint32_t  UBX_alarm_window = 0;
 //Flyblind
 int32_t  UBX_dLat          = 0;
 int32_t  UBX_dLon          = 0;
-int16_t  UBX_dEle          = 0;
 int16_t  UBX_bearing       = 0;
 uint16_t UBX_end_nav       = 0;
 uint16_t UBX_max_dist      = 10000;
 uint16_t UBX_min_angle     = 5;
+int16_t  dz_elev           = 0;
 //Flyblind
 
 static uint32_t UBX_time_of_week = 0;
@@ -722,7 +722,7 @@ static void UBX_GetValues(
 		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
 		{
 			//check if above height tone should be silenced
-			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+dz_elev)) || (UBX_end_nav == 0))
 			{
 				tVal=calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
 				//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
@@ -765,7 +765,7 @@ static void UBX_GetValues(
 		break;
 	case MODE_Direction_to_bearing:
 		//check if above height tone should be silenced
-		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+dz_elev)) || (UBX_end_nav == 0))
 		{
 			tVal=calcRelBearing(UBX_bearing,current->nav_velned.heading);
 			//check if heading not within UBX_min_angle deg of bearing or tones needed for other measurement
@@ -790,7 +790,7 @@ static void UBX_GetValues(
 		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
 		{
 			//check if above height tone should be silenced
-			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+dz_elev)) || (UBX_end_nav == 0))
 			{
 				tVal=calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
 				*min = 0;
@@ -902,7 +902,7 @@ static void UBX_SpeakValue(
 		if ((calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon) < UBX_max_dist) || (UBX_max_dist == 0))
 		{
 			//check if above height tone should be silenced
-			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+			if ((current->nav_pos_llh.hMSL > (UBX_end_nav+dz_elev)) || (UBX_end_nav == 0))
 			{
 				UBX_sp_decimals = 0;
 				tVal = calcDirection(current->nav_pos_llh.lat,current->nav_pos_llh.lon,current->nav_velned.heading);
@@ -930,7 +930,7 @@ static void UBX_SpeakValue(
 		break;
 	case SP_MODE_Direction_to_bearing:
 		//check if above height tone should be silenced
-		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+UBX_dEle)*1000) || (UBX_end_nav == 0))
+		if ((current->nav_pos_llh.hMSL > (UBX_end_nav+dz_elev)) || (UBX_end_nav == 0))
 		{
 			UBX_sp_decimals = 0;
 			tVal = calcRelBearing(UBX_bearing,current->nav_velned.heading);
@@ -939,14 +939,14 @@ static void UBX_SpeakValue(
 		break;
 	case SP_MODE_Altitude:
 		UBX_sp_decimals = 0;
-		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, ((current->nav_pos_llh.hMSL/10)-(UBX_dEle*100)), 2, 1, 0);
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, ((current->nav_pos_llh.hMSL)-(dz_elev)), 2, 1, 0);
 		break;
 	case SP_MODE_Compass:
 		UBX_sp_decimals = 0;
 		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, (current->nav_velned.heading/1000), 2, 1, 0);
 		break;
 	case 10:  //GR required to reach target at 1000m above elevation
-		tVal = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon)*10000/((current->nav_pos_llh.hMSL/10)-((UBX_dEle+1000)*100));
+		tVal = calcDistance(current->nav_pos_llh.lat,current->nav_pos_llh.lon,UBX_dLat,UBX_dLon)*10000/((current->nav_pos_llh.hMSL)-((dz_elev+1000000)));
 		Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
 	}

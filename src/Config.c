@@ -150,13 +150,11 @@ Alarm_Type:    0 ; Alarm type\r\n\
                      ;   e.g. 43.6423 should be entered as 436423000 \r\n\
       Lon: -71192000 ; Longitude of destination (Decimal degrees *10,000,000)\r\n\
                      ;   e.g. -79.387 should be entered as -793870000 \r\n\
-Elevation: 71        ; Elevation of destination (m)\r\n\
-                     ;   Max value = 3000\r\n\
   Bearing: 0         ; Bearing to follow (Degrees) (Mode 7)\r\n\
  \r\n\
  ; Flyblind silence settings\r\n\
  \r\n\
-  End_Nav: 500       ; Minimum height above Elevation (m) for tone or speech (Modes/SP_Modes 5 & 7)\r\n\
+  End_Nav: 500       ; Minimum height above DZ_Elev (m) for tone or speech (Modes/SP_Modes 5 & 7)\r\n\
                      ;   0 = Disable\r\n\
                      ;   Max value = 3000\r\n\
  Max_Dist: 10000     ; Maximum distance from destination (m) for tone or speech (Mode/SP_Mode 5)\r\n\
@@ -192,7 +190,6 @@ static const char Config_Alarm_Elev[] PROGMEM = "Alarm_Elev";
 static const char Config_Alarm_Type[] PROGMEM = "Alarm_Type";
 static const char Config_Lat[] PROGMEM        = "Lat";
 static const char Config_Lon[] PROGMEM        = "Lon";
-static const char Config_Elevation[] PROGMEM  = "Elevation";
 static const char Config_Bearing[] PROGMEM    = "Bearing";
 static const char Config_End_Nav[] PROGMEM    = "End_Nav";
 static const char Config_Max_Dist[] PROGMEM   = "Max_Dist";
@@ -288,9 +285,8 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_Window,    UBX_alarm_window, val * 1000, TRUE);
 		HANDLE_VALUE(Config_Lat,       UBX_dLat,         val, val >= -900000000 && val <= 900000000);
 		HANDLE_VALUE(Config_Lon,       UBX_dLon,         val, val >= -1800000000 && val <= 1800000000);
-		HANDLE_VALUE(Config_Elevation, UBX_dEle,         val, val >= 0 && val <= 3000);
 		HANDLE_VALUE(Config_Bearing,   UBX_bearing,      val, val >= 0 && val <= 360);
-		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val, val >= 0 && val <= 3000);
+		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val * 1000, TRUE);
 		HANDLE_VALUE(Config_Max_Dist,  UBX_max_dist,     val, val >= 0 && val <= 10000);
 		HANDLE_VALUE(Config_Min_Angle, UBX_min_angle,    val, val >= 0 && val <= 360);
 		HANDLE_VALUE(Config_DZ_Elev,   dz_elev,          val * 1000, TRUE);
