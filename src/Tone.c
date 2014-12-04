@@ -89,8 +89,6 @@ static volatile uint8_t  Tone_hold  = 0;
 
 extern int disk_is_ready(void);
 
-extern int disk_is_ready(void);
-
 ISR(TIMER1_OVF_vect)
 {
 	static uint8_t i = 0;

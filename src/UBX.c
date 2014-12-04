@@ -1107,9 +1107,6 @@ static void UBX_UpdateTones(
 		}
 		break;
 	default:
-	}
-	else
-	{
 		UBX_GetValues(current, UBX_mode_2, &val_2, &min_2, &max_2);
 	}
 
