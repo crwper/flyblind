@@ -1007,6 +1007,7 @@ static void UBX_UpdateAlarms(
 	
 	if (suppress_tone && !UBX_suppress_tone)
 	{
+		*UBX_speech_ptr = 0;
 		Tone_SetRate(0);
 		Tone_Stop();
 	}
@@ -1220,7 +1221,7 @@ static void UBX_HandleTimeUTC(void)
 
 static void UBX_HandleMessage(void)
 {
-	if (UBX_read + UBX_BUFFER_LEN == UBX_write)
+	if ((uint8_t) (UBX_read + UBX_BUFFER_LEN) == UBX_write)
 	{
 		++UBX_read;
 	}
@@ -1420,71 +1421,81 @@ void UBX_Task(void)
 		break;
 	}
 
-	if (Tone_IsIdle() && disk_is_ready() && *UBX_speech_ptr)
+	if (*UBX_speech_ptr)
 	{
-		if (*UBX_speech_ptr == '-')
+		if (Tone_IsIdle() && disk_is_ready())
 		{
-			Tone_Play("minus.wav");
-		}
-		else if (*UBX_speech_ptr == '.')
-		{
-			Tone_Play("dot.wav");
-		}
-		else if (*UBX_speech_ptr == 'l')
-		{
-			Tone_Play("left.wav");
-		}
-		else if (*UBX_speech_ptr == 'r')
-		{
-			Tone_Play("right.wav");
-		}
-		else if (*UBX_speech_ptr == 'i')
-		{
-			Tone_Play("miles.wav");
-		}
-		else if (*UBX_speech_ptr == 'k')
-		{
-			Tone_Play("KM.wav");
-		}
-		else if (*UBX_speech_ptr == 'm')
-		{
-			Tone_Play("meters.wav");
-		}
-		else if (*UBX_speech_ptr == 'n')
-		{
-			Tone_Play("knots.wav");
-		}
-		else if (*UBX_speech_ptr == 'f')
-		{
-			Tone_Play("feet.wav");
-		}
-		else if (*UBX_speech_ptr == 'o')
-		{
-			Tone_Play("oclock.wav");
-		}
-		else if (*UBX_speech_ptr >= '0' && *UBX_speech_ptr <= '9')
-		{
-			buf[0] = *UBX_speech_ptr;
-			buf[1] = '.';
-			buf[2] = 'w';
-			buf[3] = 'a';
-			buf[4] = 'v';
-			buf[5] = 0;
+			Tone_Hold();
+		
+			if (*UBX_speech_ptr == '-')
+			{
+				Tone_Play("minus.wav");
+			}
+			else if (*UBX_speech_ptr == '.')
+			{
+				Tone_Play("dot.wav");
+			}
+			else if (*UBX_speech_ptr == 'l')
+			{
+				Tone_Play("left.wav");
+			}
+			else if (*UBX_speech_ptr == 'r')
+			{
+				Tone_Play("right.wav");
+			}
+			else if (*UBX_speech_ptr == 'i')
+			{
+				Tone_Play("miles.wav");
+			}
+			else if (*UBX_speech_ptr == 'k')
+			{
+				Tone_Play("KM.wav");
+			}
+			else if (*UBX_speech_ptr == 'm')
+			{
+				Tone_Play("meters.wav");
+			}
+			else if (*UBX_speech_ptr == 'n')
+			{
+				Tone_Play("knots.wav");
+			}
+			else if (*UBX_speech_ptr == 'f')
+			{
+				Tone_Play("feet.wav");
+			}
+			else if (*UBX_speech_ptr == 'o')
+			{
+				Tone_Play("oclock.wav");
+			}
+			else if (*UBX_speech_ptr == 'a')
+			{
+				Tone_Play("10.wav");
+			}
+			else if (*UBX_speech_ptr == 'b')
+			{
+				Tone_Play("11.wav");
+			}
+			else if (*UBX_speech_ptr == 'c')
+			{
+				Tone_Play("12.wav");
+			}
+			else
+			{
+				buf[0] = *UBX_speech_ptr;
+				buf[1] = '.';
+				buf[2] = 'w';
+				buf[3] = 'a';
+				buf[4] = 'v';
+				buf[5] = 0;
+				
+				Tone_Play(buf);
+			}
 			
-			Tone_Play(buf);
+			++UBX_speech_ptr;
 		}
-		else if (*UBX_speech_ptr == 'a')
-		{
-			Tone_Play("10.wav");
-		}
-		else if (*UBX_speech_ptr == 'b')
-		{
-			Tone_Play("11.wav");
-		}
-		else if (*UBX_speech_ptr == 'c')
-		{
-			Tone_Play("12.wav");
-		}
-		++UBX_speech_ptr;
+	}
+	else
+	{
+		Tone_Release();
 	}
 }
