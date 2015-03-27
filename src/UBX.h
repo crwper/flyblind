@@ -9,6 +9,7 @@ typedef struct
 {
 	int32_t elev;
 	uint8_t type;
+	char    filename[9];
 }
 UBX_alarm;
 
@@ -38,6 +39,7 @@ extern uint8_t   UBX_sp_mode;
 extern uint8_t   UBX_sp_units;
 extern uint16_t  UBX_sp_rate;
 extern uint8_t   UBX_sp_decimals;
+extern uint8_t   UBX_sp_test;
 
 //Flyblind 
 extern int32_t   UBX_dLat;

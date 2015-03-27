@@ -17,6 +17,9 @@
 static const char Config_default[] PROGMEM = "\
 ; Firmware version " FLYSIGHT_VERSION "\r\n\
 \r\n\
+; For information on configuring FlySight, please go to\r\n\
+;     http://flysight.ca/wiki\r\n\
+\r\n\
 ; GPS settings\r\n\
 \r\n\
 Model:     6     ; Dynamic model\r\n\
@@ -118,6 +121,9 @@ TZ_Offset: 0     ; Timezone offset of output files in seconds\r\n\
                  ;   -21600 = UTC-6 (CST, MDT)\r\n\
                  ;   -25200 = UTC-7 (MST, PDT)\r\n\
                  ;   -28800 = UTC-8 (PST)\r\n\
+Sp_Test:   0     ; Run speech test\r\n\
+                 ;   0 = No\r\n\
+                 ;   1 = Yes\r\n\
 \r\n\
 \r\n\
 ; Alarm settings\r\n\
@@ -130,8 +136,8 @@ TZ_Offset: 0     ; Timezone offset of output files in seconds\r\n\
 ;          UNDER NO CIRCUMSTANCES SHOULD THESE ALARMS BE\r\n\
 ;          USED TO INDICATE DEPLOYMENT OR BREAKOFF ALTITUDE.\r\n\
 \r\n\
-; NOTE:    Alarm elevations are given in meters above sea\r\n\
-;          level.\r\n\
+; NOTE:    Alarm elevations are given in meters above ground\r\n\
+;          elevation, which is specified in DZ_Elev.\r\n\
 \r\n\
 Window:        0 ; Alarm window (m)\r\n\
 DZ_Elev:       0 ; Ground elevation (m above sea level)\r\n\
@@ -142,7 +148,8 @@ Alarm_Type:    0 ; Alarm type\r\n\
                  ;   1 = Beep\r\n\
                  ;   2 = Chirp up\r\n\
                  ;   3 = Chirp down\r\n\
-                 ;   4 = Warble\r\n\
+                 ;   4 = Play file\r\n\
+Alarm_File:    0 ; File to be played\r\n\
 \r\n\
 ; Flyblind settings\r\n\
 \r\n\
@@ -188,6 +195,7 @@ static const char Config_Window[] PROGMEM     = "Window";
 static const char Config_DZ_Elev[] PROGMEM    = "DZ_Elev";
 static const char Config_Alarm_Elev[] PROGMEM = "Alarm_Elev";
 static const char Config_Alarm_Type[] PROGMEM = "Alarm_Type";
+static const char Config_Alarm_File[] PROGMEM = "Alarm_File";
 static const char Config_Lat[] PROGMEM        = "Lat";
 static const char Config_Lon[] PROGMEM        = "Lon";
 static const char Config_Bearing[] PROGMEM    = "Bearing";
@@ -195,6 +203,7 @@ static const char Config_End_Nav[] PROGMEM    = "End_Nav";
 static const char Config_Max_Dist[] PROGMEM   = "Max_Dist";
 static const char Config_Min_Angle[] PROGMEM  = "Min_Angle";
 static const char Config_TZ_Offset[] PROGMEM  = "TZ_Offset";
+static const char Config_Sp_Test[] PROGMEM    = "Sp_Test";
 
 static void Config_WriteString_P(
 	const char *str,
@@ -291,17 +300,24 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_Min_Angle, UBX_min_angle,    val, val >= 0 && val <= 360);
 		HANDLE_VALUE(Config_DZ_Elev,   dz_elev,          val * 1000, TRUE);
 		HANDLE_VALUE(Config_TZ_Offset, Log_tz_offset,    val, TRUE);
+		HANDLE_VALUE(Config_Sp_Test,   UBX_sp_test,      val, val == 0 || val == 1);
 		
 		#undef HANDLE_VALUE
 		
 		if (!strcmp_P(name, Config_Alarm_Elev))
 		{
-			UBX_alarms[UBX_num_alarms].elev = val * 1000 + dz_elev;
+			++UBX_num_alarms;
+			UBX_alarms[UBX_num_alarms - 1].elev = val * 1000 + dz_elev;
+			UBX_alarms[UBX_num_alarms - 1].type = 0;
+			UBX_alarms[UBX_num_alarms - 1].filename[0] = '\0';
 		}
 		if (!strcmp_P(name, Config_Alarm_Type) && val != 0)
 		{
-			UBX_alarms[UBX_num_alarms].type = val;
-			++UBX_num_alarms;
+			UBX_alarms[UBX_num_alarms - 1].type = val;
+		}
+		if (!strcmp_P(name, Config_Alarm_File) && val != 0)
+		{
+			strcpy(UBX_alarms[UBX_num_alarms - 1].filename, result);
 		}
 	}
 	
