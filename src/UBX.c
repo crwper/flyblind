@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <util/delay.h>
 #include <avr/io.h>
@@ -307,7 +308,7 @@ int16_t  dz_elev           = 0;
 static uint32_t UBX_time_of_week = 0;
 static uint8_t  UBX_msg_received = 0;
 
-static char UBX_buf[150];
+char UBX_buf[150];
 
 typedef struct
 {

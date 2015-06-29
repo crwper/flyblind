@@ -53,6 +53,8 @@ extern uint16_t  UBX_min_angle;
 extern int16_t   dz_elev;
 //Flyblind
 
+extern char      UBX_buf[150];
+
 void UBX_Init(void);
 void UBX_Task(void);
 void UBX_Update(void);
