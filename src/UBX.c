@@ -310,6 +310,11 @@ static uint8_t  UBX_msg_received = 0;
 
 char UBX_buf[150];
 
+UBX_window UBX_windows[UBX_MAX_WINDOWS];
+uint8_t    UBX_num_windows = 0;
+
+int32_t UBX_dz_elev = 0;
+
 typedef struct
 {
 	int32_t  lon;      // Longitude                    (deg)
@@ -1025,7 +1030,16 @@ static void UBX_UpdateAlarms(
 
 	for (i = 0; i < UBX_num_alarms; ++i)
 	{
-		if (ABS (UBX_alarms[i].elev - current->hMSL) < UBX_alarm_window)
+		if (ABS (UBX_alarms[i].elev - current->hMSL) <= UBX_alarm_window)
+		{
+			suppress_tone = 1;
+			break;
+		}
+	}
+	
+	for (i = 0; i < UBX_num_windows; ++i)
+	{
+		if ((UBX_windows[i].bottom <= current->hMSL) && (UBX_windows[i].top >= current->hMSL))
 		{
 			suppress_tone = 1;
 			break;
@@ -1396,32 +1410,7 @@ void UBX_Init(void)
 		LEDs_ChangeLEDs(LEDS_ALL_LEDS, LEDS_RED);
 		while (1);
 	}
-
-	if (UBX_init_mode == 1)			// Speech test
-	{
-		UBX_speech_buf[0] = '0';
-		UBX_speech_buf[1] = '1';
-		UBX_speech_buf[2] = '2';
-		UBX_speech_buf[3] = '3';
-		UBX_speech_buf[4] = '4';
-		UBX_speech_buf[5] = '5';
-		UBX_speech_buf[6] = '6';
-		UBX_speech_buf[7] = '7';
-		UBX_speech_buf[8] = '8';
-		UBX_speech_buf[9] = '9';
-		UBX_speech_buf[10] = '.';
-		UBX_speech_buf[11] = '-';
-		UBX_speech_buf[12] = 0;
-		UBX_speech_ptr = UBX_speech_buf;
-	}
-	else if (UBX_init_mode == 2)	// Play a file
-	{
-		strcpy(UBX_buf, UBX_init_filename);
-		strcat(UBX_buf, ".wav");
-		Tone_Play(UBX_buf);
-	}
 }
-
 
 void UBX_Task(void)
 {

@@ -3,7 +3,8 @@
 
 #include <avr/io.h>
 
-#define UBX_MAX_ALARMS 10
+#define UBX_MAX_ALARMS  10
+#define UBX_MAX_WINDOWS 2
 
 typedef struct
 {
@@ -12,6 +13,13 @@ typedef struct
 	char    filename[9];
 }
 UBX_alarm;
+
+typedef struct
+{
+	int32_t top;
+	int32_t bottom;
+}
+UBX_window;
 
 extern uint8_t   UBX_model;
 extern uint16_t  UBX_rate;
@@ -54,6 +62,11 @@ extern int16_t   dz_elev;
 //Flyblind
 
 extern char      UBX_buf[150];
+
+extern UBX_window UBX_windows[UBX_MAX_WINDOWS];
+extern uint8_t    UBX_num_windows;
+
+extern int32_t    UBX_dz_elev;
 
 void UBX_Init(void);
 void UBX_Task(void);

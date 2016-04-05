@@ -7,6 +7,7 @@
 #include "Board/LEDs.h"
 #include "FatFS/ff.h"
 #include "Config.h"
+#include "Debug.h"
 #include "Log.h"
 #include "Main.h"
 #include "Tone.h"
@@ -157,6 +158,16 @@ Alarm_Type:    0 ; Alarm type\r\n\
                  ;   4 = Play file\r\n\
 Alarm_File:    0 ; File to be played\r\n\
 \r\n\
+; Alarm windows\r\n\
+\r\n\
+; NOTE:    Alarm windows are given in meters above ground\r\n\
+;          elevation, which is specified in DZ_Elev. Tones\r\n\
+;          will be silenced during these windows and only\r\n\
+;          alarms will be audible.\r\n\
+\r\n\
+Win_Top:       0 ; Alarm window top (m)\r\n\
+Win_Bottom:    0 ; Alarm window bottom (m)\r\n\
+\r\n\
 ; Flyblind settings\r\n\
 \r\n\
       Lat: 532497000 ; Latitude of destination  (Decimal degrees *10,000,000)\r\n\
@@ -211,6 +222,8 @@ static const char Config_Min_Angle[] PROGMEM  = "Min_Angle";
 static const char Config_TZ_Offset[] PROGMEM  = "TZ_Offset";
 static const char Config_Init_Mode[] PROGMEM  = "Init_Mode";
        const char Config_Init_File[] PROGMEM  = "Init_File";
+static const char Config_Win_Top[] PROGMEM    = "Win_Top";
+static const char Config_Win_Bottom[] PROGMEM = "Win_Bottom";
 
 char Config_buf[80];
 
@@ -226,59 +239,23 @@ static void Config_WriteString_P(
 	}
 }
 
-void Config_Read(void)
+static FRESULT Config_ReadSingle(
+	const char *dir,
+	const char *filename)
 {
 	size_t  len;
 	char    *name;
 	char    *result;
-	
 	int32_t val;
-	int32_t dz_elev = 0;
 
 	FRESULT res;
 
-	eeprom_read_block(UBX_buf, CONFIG_FNAME_ADDR, CONFIG_FNAME_LEN);
-	if (UBX_buf[0] == 0 || UBX_buf[0] == 0xff)
-	{
-		res = f_chdir("\\");
-		res = f_open(&Main_file, "config.txt", FA_READ);
-	}
-	else
-	{
-		res = f_chdir("\\config");
-		res = f_open(&Main_file, UBX_buf, FA_READ);
-
-		if (res != FR_OK)
-		{
-			res = f_chdir("\\");
-			res = f_open(&Main_file, "config.txt", FA_READ);
-		}
-	}
+	res = f_chdir(dir);
+	if (res != FR_OK) return res;
 	
-	if (res != FR_OK)
-	{
-		res = f_chdir("\\");
-		res = f_open(&Main_file, "config.txt", FA_WRITE | FA_CREATE_ALWAYS);
-		if (res != FR_OK) 
-		{
-			Main_activeLED = LEDS_RED;
-			LEDs_ChangeLEDs(LEDS_ALL_LEDS, Main_activeLED);
-			return ;
-		}
+	res = f_open(&Main_file, filename, FA_READ);
+	if (res != FR_OK) return res;
 
-		Config_WriteString_P(Config_default, &Main_file);
-		f_close(&Main_file);
-
-		res = f_chdir("\\config");
-		res = f_open(&Main_file, "config.txt", FA_READ);
-		if (res != FR_OK)
-		{
-			Main_activeLED = LEDS_RED;
-			LEDs_ChangeLEDs(LEDS_ALL_LEDS, Main_activeLED);
-			return ;
-		}
-	}
-	
 	while (!f_eof(&Main_file))
 	{
 		f_gets(Config_buf, sizeof(Config_buf), &Main_file);
@@ -325,7 +302,7 @@ void Config_Read(void)
 		HANDLE_VALUE(Config_End_Nav,   UBX_end_nav,      val * 1000, TRUE);
 		HANDLE_VALUE(Config_Max_Dist,  UBX_max_dist,     val, val >= 0 && val <= 10000);
 		HANDLE_VALUE(Config_Min_Angle, UBX_min_angle,    val, val >= 0 && val <= 360);
-		HANDLE_VALUE(Config_DZ_Elev,   dz_elev,          val * 1000, TRUE);
+		HANDLE_VALUE(Config_DZ_Elev,   UBX_dz_elev,      val * 1000, TRUE);
 		HANDLE_VALUE(Config_TZ_Offset, Log_tz_offset,    val, TRUE);
 		HANDLE_VALUE(Config_Init_Mode, UBX_init_mode,    val, val >= 0 && val <= 2);
 		
@@ -333,25 +310,68 @@ void Config_Read(void)
 		
 		if (!strcmp_P(name, Config_Init_File))
 		{
+			result[8] = '\0';
 			strcpy(UBX_init_filename, result);
 		}
 		
-		if (!strcmp_P(name, Config_Alarm_Elev))
+		if (!strcmp_P(name, Config_Alarm_Elev) && UBX_num_alarms < UBX_MAX_ALARMS)
 		{
 			++UBX_num_alarms;
-			UBX_alarms[UBX_num_alarms - 1].elev = val * 1000 + dz_elev;
+			UBX_alarms[UBX_num_alarms - 1].elev = val * 1000 + UBX_dz_elev;
 			UBX_alarms[UBX_num_alarms - 1].type = 0;
 			UBX_alarms[UBX_num_alarms - 1].filename[0] = '\0';
 		}
-		if (!strcmp_P(name, Config_Alarm_Type))
+		if (!strcmp_P(name, Config_Alarm_Type) && UBX_num_alarms <= UBX_MAX_ALARMS)
 		{
 			UBX_alarms[UBX_num_alarms - 1].type = val;
 		}
-		if (!strcmp_P(name, Config_Alarm_File))
+		if (!strcmp_P(name, Config_Alarm_File) && UBX_num_alarms <= UBX_MAX_ALARMS)
 		{
+			result[8] = '\0';
 			strcpy(UBX_alarms[UBX_num_alarms - 1].filename, result);
+		}
+		
+		if (!strcmp_P(name, Config_Win_Top) && UBX_num_windows < UBX_MAX_WINDOWS)
+		{
+			++UBX_num_windows;
+			UBX_windows[UBX_num_windows - 1].top = val * 1000 + UBX_dz_elev;
+		}
+		if (!strcmp_P(name, Config_Win_Bottom) && UBX_num_windows <= UBX_MAX_WINDOWS)
+		{
+			UBX_windows[UBX_num_windows - 1].bottom = val * 1000 + UBX_dz_elev;
 		}
 	}
 	
 	f_close(&Main_file);
+	
+	return FR_OK;
+}
+
+void Config_Read(void)
+{
+	FRESULT res;
+
+	res = Config_ReadSingle("\\", "config.txt");
+	
+	if (res != FR_OK)
+	{
+		res = f_chdir("\\");
+		res = f_open(&Main_file, "config.txt", FA_WRITE | FA_CREATE_ALWAYS);
+		if (res != FR_OK) 
+		{
+			Main_activeLED = LEDS_RED;
+			LEDs_ChangeLEDs(LEDS_ALL_LEDS, Main_activeLED);
+			return ;
+		}
+
+		Config_WriteString_P(Config_default, &Main_file);
+		f_close(&Main_file);
+	}
+
+	eeprom_read_block(UBX_buf, CONFIG_FNAME_ADDR, CONFIG_FNAME_LEN);
+
+	if (UBX_buf[0] != 0 && UBX_buf[0] != 0xff)
+	{
+		res = Config_ReadSingle("\\config", UBX_buf);
+	}
 }

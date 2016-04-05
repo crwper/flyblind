@@ -98,13 +98,12 @@ static void ReadSingleConfigName(
 			strcat(UBX_buf, ".wav");
 
 			Power_Hold();
+			Tone_Hold();
 			
 			Tone_Play(UBX_buf);
-			while (!Tone_IsIdle())
-			{
-				Tone_Task();
-			}
+			Tone_Wait();
 			
+			Tone_Release();
 			Power_Release();
 			
 			delay_ms(500);
@@ -136,6 +135,44 @@ static void ReadConfigNames(void)
 	}
 
 	eeprom_write_block("", CONFIG_FNAME_ADDR, CONFIG_FNAME_LEN);
+}
+
+static void ReadInitFile(void)
+{
+	uint8_t i;
+
+	Power_Hold();
+	Tone_Hold();
+	
+	if (UBX_init_mode == 1)			// Speech test
+	{
+		for (i = 0; i < 10; ++i)
+		{
+			UBX_buf[0] = i + '0';
+			UBX_buf[1] = 0;
+			strcat(UBX_buf, ".wav");
+
+			Tone_Play(UBX_buf);
+			Tone_Wait();
+		}
+
+		Tone_Play("dot.wav");
+		Tone_Wait();
+
+		Tone_Play("minus.wav");
+		Tone_Wait();
+	}
+	else if (UBX_init_mode == 2)	// Play a file
+	{
+		strcpy(UBX_buf, UBX_init_filename);
+		strcat(UBX_buf, ".wav");
+
+		Tone_Play(UBX_buf);
+		Tone_Wait();
+	}
+	
+	Tone_Release();
+	Power_Release();
 }
 
 int main(void)
@@ -213,6 +250,8 @@ int main(void)
 		Signature_Write();
 		Config_Read();
 		Power_Release();
+				
+		ReadInitFile();
 		
 		Timer_Init();
 		UBX_Init();
