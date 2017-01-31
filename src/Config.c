@@ -168,7 +168,7 @@ Alarm_File:    0 ; File to be played\r\n\
 ;          alarms will be audible.\r\n\
 \r\n\
 Win_Top:       0 ; Silence window top (m)\r\n\
-Win_Bottom:    0 ; Silence window bottom (m)\r\n";
+Win_Bottom:    0 ; Silence window bottom (m)\r\n\
 \r\n\
 ; Flyblind settings\r\n\
 \r\n\
@@ -185,9 +185,7 @@ Win_Bottom:    0 ; Silence window bottom (m)\r\n";
                      ;   Max value = 3000\r\n\
  Max_Dist: 10000     ; Maximum distance from destination (m) for tone or speech (Mode/SP_Mode 5)\r\n\
                      ;   0 = Disable\r\n\
-                     ;   Max value = 10000\r\n\
-					 \r\n\
-\r\n" ;
+                     ;   Max value = 10000\r\n" ;
 
 static const char Config_Model[] PROGMEM      = "Model";
 static const char Config_Rate[] PROGMEM       = "Rate";
