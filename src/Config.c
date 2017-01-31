@@ -57,6 +57,7 @@ Limits:    1     ; Behaviour when outside bounds\r\n\
                  ;   0 = No tone\r\n\
                  ;   1 = Min/max tone\r\n\
                  ;   2 = Chirp up/down\r\n\
+                 ;   3 = Chirp down/up\r\n\
 Volume:    6     ; 0 (min) to 8 (max)\r\n\
 \r\n\
 ; Rate settings\r\n\
@@ -146,7 +147,8 @@ Init_File: 0     ; File to be played\r\n\
 ; NOTE:    Alarm elevations are given in meters above ground\r\n\
 ;          elevation, which is specified in DZ_Elev.\r\n\
 \r\n\
-Window:        0 ; Alarm window (m)\r\n\
+Win_Above:     0 ; Window above each alarm (m)\r\n\
+Win_Below:     0 ; Window below each alarm (m)\r\n\
 DZ_Elev:       0 ; Ground elevation (m above sea level)\r\n\
 \r\n\
 Alarm_Elev: 1000 ; Alarm elevation (m above ground level)\r\n\
@@ -158,15 +160,15 @@ Alarm_Type:    0 ; Alarm type\r\n\
                  ;   4 = Play file\r\n\
 Alarm_File:    0 ; File to be played\r\n\
 \r\n\
-; Alarm windows\r\n\
+; Silence windows\r\n\
 \r\n\
-; NOTE:    Alarm windows are given in meters above ground\r\n\
+; NOTE:    Silence windows are given in meters above ground\r\n\
 ;          elevation, which is specified in DZ_Elev. Tones\r\n\
 ;          will be silenced during these windows and only\r\n\
 ;          alarms will be audible.\r\n\
 \r\n\
-Win_Top:       0 ; Alarm window top (m)\r\n\
-Win_Bottom:    0 ; Alarm window bottom (m)\r\n\
+Win_Top:       0 ; Silence window top (m)\r\n\
+Win_Bottom:    0 ; Silence window bottom (m)\r\n";
 \r\n\
 ; Flyblind settings\r\n\
 \r\n\
@@ -209,6 +211,8 @@ static const char Config_V_Thresh[] PROGMEM   = "V_Thresh";
 static const char Config_H_Thresh[] PROGMEM   = "H_Thresh";
 static const char Config_Use_SAS[] PROGMEM    = "Use_SAS";
 static const char Config_Window[] PROGMEM     = "Window";
+static const char Config_Window_Above[] PROGMEM = "Win_Above";
+static const char Config_Window_Below[] PROGMEM = "Win_Below";
 static const char Config_DZ_Elev[] PROGMEM    = "DZ_Elev";
 static const char Config_Alarm_Elev[] PROGMEM = "Alarm_Elev";
 static const char Config_Alarm_Type[] PROGMEM = "Alarm_Type";
@@ -295,7 +299,10 @@ static FRESULT Config_ReadSingle(
 		HANDLE_VALUE(Config_V_Thresh,  UBX_threshold,    val, TRUE);
 		HANDLE_VALUE(Config_H_Thresh,  UBX_hThreshold,   val, TRUE);
 		HANDLE_VALUE(Config_Use_SAS,   UBX_use_sas,      val, val == 0 || val == 1);
-		HANDLE_VALUE(Config_Window,    UBX_alarm_window, val * 1000, TRUE);
+		HANDLE_VALUE(Config_Window,    UBX_alarm_window_above, val * 1000, TRUE);
+		HANDLE_VALUE(Config_Window,    UBX_alarm_window_below, val * 1000, TRUE);
+		HANDLE_VALUE(Config_Window_Above, UBX_alarm_window_above, val * 1000, TRUE);
+		HANDLE_VALUE(Config_Window_Below, UBX_alarm_window_below, val * 1000, TRUE);
 		HANDLE_VALUE(Config_Lat,       UBX_dLat,         val, val >= -900000000 && val <= 900000000);
 		HANDLE_VALUE(Config_Lon,       UBX_dLon,         val, val >= -1800000000 && val <= 1800000000);
 		HANDLE_VALUE(Config_Bearing,   UBX_bearing,      val, val >= 0 && val <= 360);

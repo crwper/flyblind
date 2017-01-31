@@ -293,7 +293,8 @@ uint32_t UBX_hThreshold    = 0;
 
 UBX_alarm UBX_alarms[UBX_MAX_ALARMS];
 uint8_t   UBX_num_alarms   = 0;
-uint32_t  UBX_alarm_window = 0;
+uint32_t  UBX_alarm_window_above = 0;
+uint32_t  UBX_alarm_window_below = 0;
 
 //Flyblind
 int32_t  UBX_dLat          = 0;
@@ -644,10 +645,15 @@ static void UBX_SetTone(
 				Tone_SetPitch(0);
 				Tone_SetChirp(0);
 			}
-			else
+			else if (UBX_limits == 2)
 			{
 				Tone_SetPitch(0);
 				Tone_SetChirp(TONE_CHIRP_MAX);
+			}
+			else
+			{
+				Tone_SetPitch(TONE_MAX_PITCH - 1);
+				Tone_SetChirp(-TONE_CHIRP_MAX);
 			}
 		}
 		else if (OVER(val_1, min_1, max_1))
@@ -661,10 +667,15 @@ static void UBX_SetTone(
 				Tone_SetPitch(TONE_MAX_PITCH - 1);
 				Tone_SetChirp(0);
 			}
-			else
+			else if (UBX_limits == 2)
 			{
 				Tone_SetPitch(TONE_MAX_PITCH - 1);
 				Tone_SetChirp(-TONE_CHIRP_MAX);
+			}
+			else
+			{
+				Tone_SetPitch(0);
+				Tone_SetChirp(TONE_CHIRP_MAX);
 			}
 		}
 		else
@@ -1030,7 +1041,8 @@ static void UBX_UpdateAlarms(
 
 	for (i = 0; i < UBX_num_alarms; ++i)
 	{
-		if (ABS (UBX_alarms[i].elev - current->hMSL) <= UBX_alarm_window)
+		if (current->hMSL - UBX_alarms[i].elev <= UBX_alarm_window_above &&
+		    UBX_alarms[i].elev - current->hMSL <= UBX_alarm_window_below)
 		{
 			suppress_tone = 1;
 			break;
@@ -1372,27 +1384,29 @@ void UBX_Init(void)
 		.reserved5    = 0       // Reserved, set to 0
 	};
 
-	uint8_t success = 1;
-	
-	uart_init(51); // 9600 baud
-	
-	UBX_SendMessage(UBX_CFG, UBX_CFG_PRT, sizeof(cfg_prt), &cfg_prt);
+	do
+	{
+		uart_init(51); // 9600 baud
 
-	// NOTE: We don't wait for ACK here since some FlySights will already be
-	//       set to 38400 baud.
-	
-	while (!uart_tx_empty());
+		UBX_SendMessage(UBX_CFG, UBX_CFG_PRT, sizeof(cfg_prt), &cfg_prt);
 
-	uart_init(12); // 38400 baud
+		// NOTE: We don't wait for ACK here since some FlySights will already be
+		//       set to 38400 baud.
 
-	_delay_ms(10); // wait for GPS UART to reset
-	
-	UBX_SendMessage(UBX_CFG, UBX_CFG_PRT, sizeof(cfg_prt), &cfg_prt);
-	if (!UBX_WaitForAck(UBX_CFG, UBX_CFG_PRT, UBX_TIMEOUT)) success = 0;
+		while (!uart_tx_empty());
 
-	#define SEND_MESSAGE(c,m,d) { \
-		UBX_SendMessage(c,m,sizeof(d),&d); \
-		if (!UBX_WaitForAck(c,m,UBX_TIMEOUT)) success = 0; }
+		uart_init(12); // 38400 baud
+
+		_delay_ms(10); // wait for GPS UART to reset
+
+		UBX_SendMessage(UBX_CFG, UBX_CFG_PRT, sizeof(cfg_prt), &cfg_prt);
+	}
+	while (!UBX_WaitForAck(UBX_CFG, UBX_CFG_PRT, UBX_TIMEOUT));
+
+	#define SEND_MESSAGE(c,m,d) \
+		do { \
+			UBX_SendMessage(c,m,sizeof(d),&d); \
+		} while (!UBX_WaitForAck(c,m,UBX_TIMEOUT));
 
 	for (i = 0; i < n; ++i)
 	{
@@ -1404,12 +1418,6 @@ void UBX_Init(void)
 	SEND_MESSAGE(UBX_CFG, UBX_CFG_RST,  cfg_rst);
 	
 	#undef SEND_MESSAGE
-
-	if (!success)
-	{
-		LEDs_ChangeLEDs(LEDS_ALL_LEDS, LEDS_RED);
-		while (1);
-	}
 }
 
 void UBX_Task(void)
