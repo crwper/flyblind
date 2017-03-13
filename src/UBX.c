@@ -71,6 +71,7 @@
 #define MODE_Magnitude_of_Value_1       8
 #define MODE_Change_in_Value_1          9
 #define MODE_LeftRight                 10
+#define MODE_Dive_angle                11
 
 #define SP_MODE_Horizontal_speed           0
 #define SP_MODE_Vertical_speed             1
@@ -82,6 +83,7 @@
 #define SP_MODE_Direction_to_bearing       7
 #define SP_MODE_Altitude                   8
 #define SP_MODE_Compass                    9
+#define SP_MODE_Dive_angle                11
 
 
 #define MODEL_Portable                  0
@@ -857,7 +859,9 @@ static void UBX_GetValues(
 			}
 		}
 		break;
-//Flyblind	
+	case MODE_Dive_angle:
+		*val = atan2(current->velD, current->gSpeed) / M_PI * 180;
+		break;
 	}
 }
 
@@ -993,6 +997,9 @@ static void UBX_SpeakValue(
 		tVal = calcDistance(current->lat,current->lon,UBX_dLat,UBX_dLon)*10000/((current->hMSL)-((dz_elev+1000000)));
 		Log_WriteInt32ToBuf(UBX_speech_ptr, tVal, 2, 1, 0);
 		break;
+	case SP_MODE_Dive_angle:
+		UBX_speech_ptr = Log_WriteInt32ToBuf(UBX_speech_ptr, 100 * atan2(current->velD, current->gSpeed) / M_PI * 180, 2, 1, 0);
+		break;
 	}
 	
 	// Step 2: Truncate to the desired number of decimal places
@@ -1041,8 +1048,8 @@ static void UBX_UpdateAlarms(
 
 	for (i = 0; i < UBX_num_alarms; ++i)
 	{
-		if (current->hMSL - UBX_alarms[i].elev <= UBX_alarm_window_above &&
-		    UBX_alarms[i].elev - current->hMSL <= UBX_alarm_window_below)
+		if ((current->hMSL <= UBX_alarms[i].elev + UBX_alarm_window_above) &&
+		    (current->hMSL >= UBX_alarms[i].elev - UBX_alarm_window_below))
 		{
 			suppress_tone = 1;
 			break;
@@ -1415,9 +1422,10 @@ void UBX_Init(void)
 	
 	SEND_MESSAGE(UBX_CFG, UBX_CFG_RATE, cfg_rate);
 	SEND_MESSAGE(UBX_CFG, UBX_CFG_NAV5, cfg_nav5);
-	SEND_MESSAGE(UBX_CFG, UBX_CFG_RST,  cfg_rst);
 	
 	#undef SEND_MESSAGE
+
+	UBX_SendMessage(UBX_CFG, UBX_CFG_RST, sizeof(cfg_rst), &cfg_rst);
 }
 
 void UBX_Task(void)

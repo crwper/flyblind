@@ -25,7 +25,7 @@ static const char Config_default[] PROGMEM = "\
 \r\n\
 ; GPS settings\r\n\
 \r\n\
-Model:     6     ; Dynamic model\r\n\
+Model:     7     ; Dynamic model\r\n\
                  ;   0 = Portable\r\n\
                  ;   2 = Stationary\r\n\
                  ;   3 = Pedestrian\r\n\
@@ -47,12 +47,15 @@ Mode:      5     ; Measurement mode\r\n\
                  ;   5 = Direction to destination\r\n\
                  ;   6 = Distance to destination\r\n\
                  ;   7 = Direction to bearing\r\n\
+                 ;   11 = Dive angle\r\n\
 Min:       0     ; Lowest pitch value\r\n\
                  ;   cm/s        in Mode 0, 1, or 4\r\n\
                  ;   ratio * 100 in Mode 2 or 3\r\n\
+                 ;   degrees     in Mode 11\r\n\
 Max:       300   ; Highest pitch value\r\n\
                  ;   cm/s        in Mode 0, 1, or 4\r\n\
                  ;   ratio * 100 in Mode 2 or 3\r\n\
+                 ;   degrees     in Mode 11\r\n\
 Limits:    1     ; Behaviour when outside bounds\r\n\
                  ;   0 = No tone\r\n\
                  ;   1 = Min/max tone\r\n\
@@ -73,14 +76,17 @@ Mode_2:    5     ; Determines tone rate\r\n\
                  ;   7 = Direction to bearing\r\n\
                  ;   8 = Magnitude of Value 1\r\n\
                  ;   9 = Change in Value 1\r\n\
+                 ;   11 = Dive angle\r\n\
 Min_Val_2: 300   ; Lowest rate value\r\n\
                  ;   cm/s          when Mode 2 = 0, 1, or 4\r\n\
                  ;   ratio * 100   when Mode 2 = 2 or 3\r\n\
                  ;   percent * 100 when Mode 2 = 9\r\n\
+                 ;   degrees       when Mode 2 = 11\r\n\
 Max_Val_2: 1500  ; Highest rate value\r\n\
                  ;   cm/s          when Mode 2 = 0, 1, or 4\r\n\
                  ;   ratio * 100   when Mode 2 = 2 or 3\r\n\
                  ;   percent * 100 when Mode 2 = 9\r\n\
+                 ;   degrees       when Mode 2 = 11\r\n\
 Min_Rate:  100   ; Minimum rate (Hz * 100)\r\n\
 Max_Rate:  500   ; Maximum rate (Hz * 100)\r\n\
 Flatline:  0     ; Flatline at minimum rate\r\n\
@@ -98,6 +104,7 @@ Sp_Mode:   6     ; Speech mode\r\n\
                  ;   5 = Direction to destination\r\n\
                  ;   6 = Distance to destination\r\n\
                  ;   7 = Direction to bearing\r\n\
+                 ;   11 = Dive angle\r\n\
 Sp_Units:  2     ; Speech units\r\n\
                  ;   0 = km/h\r\n\
                  ;   1 = mph\r\n\
@@ -278,18 +285,18 @@ static FRESULT Config_ReadSingle(
 
 		HANDLE_VALUE(Config_Model,     UBX_model,        val, val >= 0 && val <= 8);
 		HANDLE_VALUE(Config_Rate,      UBX_rate,         val, val >= 100);
-		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, val >= 0 && val <= 10);
+		HANDLE_VALUE(Config_Mode,      UBX_mode,         val, (val >= 0 && val <= 7) || (val >= 10 && val <= 11));
 		HANDLE_VALUE(Config_Min,       UBX_min,          val, TRUE);
 		HANDLE_VALUE(Config_Max,       UBX_max,          val, TRUE);
 		HANDLE_VALUE(Config_Limits,    UBX_limits,       val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Volume,    Tone_volume,      8 - val, val >= 0 && val <= 8);
-		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, val >= 0 && val <= 9);
+		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, (val >= 0 && && val <= 9) || (val == 11));
 		HANDLE_VALUE(Config_Min_Val_2, UBX_min_2,        val, TRUE);
 		HANDLE_VALUE(Config_Max_Val_2, UBX_max_2,        val, TRUE);
 		HANDLE_VALUE(Config_Min_Rate,  UBX_min_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Max_Rate,  UBX_max_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
 		HANDLE_VALUE(Config_Flatline,  UBX_flatline,     val, val == 0 || val == 1);
-		HANDLE_VALUE(Config_Sp_Mode,   UBX_sp_mode,      val, val >= 0 && val <= 10);
+		HANDLE_VALUE(Config_Mode,      UBX_sp_mode,      val, (val >= 0 && val <= 7) || (val >= 10 && val <= 11));
 		HANDLE_VALUE(Config_Sp_Units,  UBX_sp_units,     val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Sp_Rate,   UBX_sp_rate,      val * 1000, val >= 0 && val <= 32);
 		HANDLE_VALUE(Config_Sp_Dec,    UBX_sp_decimals,  val, val >= 0 && val <= 2);
