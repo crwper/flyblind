@@ -290,7 +290,7 @@ static FRESULT Config_ReadSingle(
 		HANDLE_VALUE(Config_Max,       UBX_max,          val, TRUE);
 		HANDLE_VALUE(Config_Limits,    UBX_limits,       val, val >= 0 && val <= 2);
 		HANDLE_VALUE(Config_Volume,    Tone_volume,      8 - val, val >= 0 && val <= 8);
-		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, (val >= 0 && && val <= 9) || (val == 11));
+		HANDLE_VALUE(Config_Mode_2,    UBX_mode_2,       val, (val >= 0 && val <= 9) || (val == 11));
 		HANDLE_VALUE(Config_Min_Val_2, UBX_min_2,        val, TRUE);
 		HANDLE_VALUE(Config_Max_Val_2, UBX_max_2,        val, TRUE);
 		HANDLE_VALUE(Config_Min_Rate,  UBX_min_rate,     val * TONE_RATE_ONE_HZ / 100, val >= 0);
